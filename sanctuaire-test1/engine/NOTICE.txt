@@ -1,0 +1,10 @@
+The files in this folder (translator.js and worker/*) are the unmodified
+@browsermt/bergamot-translator package, version 0.4.9, published by the
+Bergamot project (Mozilla and partners) under the Mozilla Public License 2.0.
+
+Source:  https://github.com/browsermt/bergamot-translator
+License: https://www.mozilla.org/MPL/2.0/
+
+The translation model files are published by Mozilla in
+https://github.com/mozilla/firefox-translations-models under the MPL 2.0 and are
+NOT included in this folder; the test page downloads them from that repository.
