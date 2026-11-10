@@ -1,0 +1,1061 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sanctuaire · Test 1 · Shared test sheet</title>
+<style>
+  :root {
+    --bg: #eef1f5; --panel: #ffffff; --ink: #1b2430; --muted: #5b6676; --line: #d5dbe3;
+    --accent: #2f6f8f; --good: #2f7d5b; --warn: #a86b12; --bad: #b4452f; --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 44rem; margin: 0 auto; padding: 1rem 1rem 5rem; }
+  h1 { font-size: 1.45rem; line-height: 1.25; margin: 0.75rem 0 0.25rem; }
+  h2 { font-size: 1.05rem; margin: 1rem 0 0.4rem; }
+  h3 { font-size: 0.98rem; margin: 0 0 0.25rem; }
+  p { margin: 0.35rem 0; }
+  .muted { color: var(--muted); font-size: 0.9rem; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; margin-top: 0.9rem; }
+  .hidden { display: none !important; }
+  label { display: block; font-weight: 600; margin: 0.7rem 0 0.25rem; }
+  textarea, select, input[type="password"] {
+    width: 100%; font: inherit; color: inherit; background: #fff;
+    border: 1px solid var(--line); border-radius: 8px; padding: 0.55rem 0.65rem;
+  }
+  textarea { min-height: 4.2rem; resize: vertical; }
+  textarea.short { min-height: 2.8rem; }
+  button {
+    font: inherit; min-height: 2.75rem; padding: 0.45rem 0.9rem; border-radius: 8px;
+    border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.secondary { background: #fff; color: var(--accent); }
+  button.danger { background: #fff; color: var(--bad); border-color: var(--bad); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button:focus-visible, textarea:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible {
+    outline: 3px solid #f0b429; outline-offset: 2px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+  .row > * { flex: 1 1 auto; }
+  .bar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; }
+  .bar > div { min-width: 0; }
+  .bar .row { margin: 0; }
+  .bar button { min-height: 2.4rem; }
+  .banner { padding: 0.7rem 0.85rem; border-radius: 8px; border: 1px solid var(--line); background: #fff; margin-top: 0.9rem; overflow-wrap: anywhere; }
+  .banner.err { border-color: var(--bad); color: var(--bad); }
+  .banner.ok { border-color: var(--good); color: var(--good); }
+  .summary { background: #f3f6f9; border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.75rem; }
+  .counts { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin-top: 0.3rem; font-size: 0.92rem; }
+  details.cat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin-top: 0.7rem; }
+  details.cat > summary { padding: 0.8rem 1rem; min-height: 3rem; display: flex; justify-content: space-between; gap: 0.5rem; cursor: pointer; font-weight: 700; list-style: none; }
+  details.cat > summary::-webkit-details-marker { display: none; }
+  details.cat > summary .prog { font-weight: 600; color: var(--muted); white-space: nowrap; }
+  details.cat > .body { padding: 0 1rem 1rem; }
+  .slot { border: 1px solid var(--line); border-radius: 8px; padding: 0.7rem; margin-top: 0.6rem; background: #fbfcfd; }
+  .slot-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.3rem; }
+  .chip { font-size: 0.8rem; font-weight: 700; padding: 0.1rem 0.55rem; border-radius: 999px; border: 1px solid var(--line); background: #fff; white-space: nowrap; }
+  .chip.written { color: var(--muted); }
+  .chip.tested { color: var(--accent); border-color: var(--accent); }
+  .chip.reviewed { color: var(--warn); border-color: var(--warn); }
+  .chip.done { color: var(--good); border-color: var(--good); background: #e8f4ee; }
+  .chip.empty { color: var(--muted); border-style: dashed; }
+  .box { margin-top: 0.4rem; padding: 0.55rem 0.7rem; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .box small { display: block; color: var(--muted); }
+  .rate { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin-top: 0.4rem; }
+  .rate.two { grid-template-columns: repeat(2, 1fr); }
+  .rate button { background: #fff; color: var(--ink); border-color: var(--line); line-height: 1.2; }
+  .rate button[aria-pressed="true"] { border-width: 2px; font-weight: 700; }
+  .rate button[data-v="good"][aria-pressed="true"], .rate button[data-v="kept"][aria-pressed="true"] { border-color: var(--good); background: #e8f4ee; }
+  .rate button[data-v="awkward"][aria-pressed="true"] { border-color: var(--warn); background: #fbf1e0; }
+  .rate button[data-v="wrong"][aria-pressed="true"], .rate button[data-v="changed"][aria-pressed="true"] { border-color: var(--bad); background: #fbe9e5; }
+  .msg { min-height: 1.2rem; font-size: 0.88rem; color: var(--muted); margin-top: 0.3rem; overflow-wrap: anywhere; }
+  .msg.err { color: var(--bad); }
+  .msg.ok { color: var(--good); }
+  .reviewline { font-size: 0.92rem; margin-top: 0.4rem; overflow-wrap: anywhere; }
+  .files { margin-top: 0.6rem; display: grid; gap: 0.4rem; }
+  .file { font-size: 0.85rem; }
+  .file progress { width: 100%; height: 0.5rem; }
+  details.plain > summary { cursor: pointer; font-weight: 600; min-height: 2.5rem; display: flex; align-items: center; }
+</style>
+<link rel="stylesheet" href="../theme.css">
+</head>
+<body>
+<script src="../config.js"></script>
+<script src="../env.js"></script>
+<script src="../hub-bar.js"></script>
+<main>
+  <div id="cfg" class="banner err hidden"></div>
+
+  <section id="view-login" class="card hidden">
+    <h1>Sanctuaire · Test 1</h1>
+    <p class="muted">Shared test sheet · Feuille de test partagée</p>
+    <label for="pin">PIN / Code</label>
+    <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="8">
+    <div class="row"><button id="enter" type="button">Enter · Entrer</button></div>
+    <div class="row"><button id="check" type="button" class="secondary">Check the connection · Vérifier la connexion</button></div>
+    <div id="login-msg" class="msg" role="status" aria-live="polite"></div>
+  </section>
+
+  <div id="view-main" class="hidden">
+    <header class="card">
+      <div class="bar">
+        <div>
+          <h1 id="t-title"></h1>
+          <div class="muted" id="who"></div>
+        </div>
+      </div>
+      <p class="muted" id="how"></p>
+      <div class="muted" id="updated" role="status"></div>
+    </header>
+
+    <section class="card" id="tpanel"></section>
+
+    <section class="card">
+      <div class="summary" id="summary"></div>
+      <label for="filter" id="l-filter"></label>
+      <select id="filter"></select>
+    </section>
+
+
+    <div id="cats"></div>
+    <section class="card hidden" id="admin"></section>
+  </div>
+</main>
+
+<script type="module">
+import { decompress as zstdDecompress } from './vendor/fzstd.mjs';
+import * as store from './modelstore.js';
+
+// ---- connection to the shared database (public values; safe to be in this file) ----
+const SUPABASE_URL = SENV.sb;                 // from config.js
+const SUPABASE_KEY = SENV.key;
+
+const SESSION_KEY = 'sanctuaire-t1-session-v1';
+const HF = 'https://huggingface.co/TranslateInPlace/translate-in-place-models/resolve/main';
+const CDN = 'https://firefox-settings-attachments.cdn.mozilla.net';
+const LEX = {
+  enfr: { name: 'lex.50.50.enfr.s2t.bin', location: 'main-workspace/translations-models-v2/bff0d10a-d07a-4873-a5a7-a6b7af42bf86.zst' },
+  fren: { name: 'lex.50.50.fren.s2t.bin', location: 'main-workspace/translations-models-v2/7238348a-b118-40f8-9e17-327fb54b2dc8.zst' },
+};
+
+// ---------- texts ----------
+const I18N = {
+  en: {
+    title: 'Test 1 · Shared test sheet',
+    signedIn: 'Signed in as',
+    role_admin: 'English speaker (admin)', role_partner: 'French speaker',
+    refresh: 'Refresh', logout: 'Log out',
+    how: 'Write your sentences in your own language, tap Test, and check the result. Then review the other person\'s sentences. Everything saves automatically and both of you see it.',
+    updated: (t) => `Updated ${t}`,
+    cfgMissing: 'This page is not connected to the database yet. The admin has to finish the database setup first.',
+    wrongPin: (n) => `Wrong PIN. ${n} more tries before a pause.`,
+    locked: (m) => `Too many wrong tries. Try again in about ${m} minute(s).`,
+    netError: 'Could not reach the database. Check your connection and try again.',
+    sessionEnded: 'Your session ended. Please enter your PIN again.',
+    enterPin: 'Enter your PIN.',
+    translator: 'Translator on this phone',
+    translatorHelp: 'Each phone prepares its own translator once (about 60 MB, a few minutes on the first run). Nothing you type is sent to it or to anyone else for translation; it runs on your phone.',
+    engine: 'Engine build', engineNew: 'Newer build 0.4.16 (recommended)', engineOld: 'Official build 0.4.9',
+    beam: 'Search mode', beamFast: 'Fast', beamCareful: 'Careful (slower)',
+    prepare: 'Download and prepare (one time only)', preparing: 'Preparing…',
+    prepareStored: 'Start the translator (no download)', redo: 'Download again (only if something is wrong)',
+    confirmRedo: 'Delete the stored models and download them again (about 60 MB)?',
+    fromStorage: 'from this phone\'s storage, no download', notStored: 'The models are not stored on this phone yet.',
+    foundStored: 'Models found on this phone. Starting the translator…',
+    readyStored: (s) => `Ready, from this phone's storage. Nothing was downloaded. Took ${s} s.`,
+    readyDownloaded: (s, m) => `Ready. Downloaded ${m} MB, and stored on this phone: this is a one-time download. Took ${s} s.`,
+    notReady: 'Not prepared yet.',
+    ready: (s, lex) => `Ready${lex ? '' : ' (without word lists)'}. Took ${s} s.`,
+    prepFail: (m) => `${m} You can also try the other engine build.`,
+    needTranslator: 'Prepare the translator first (the Translator section above).',
+    toWrite: 'To write', toTest: 'To test', toReview: 'To review', toCheck: 'To check back-translation', doneCount: (d, n) => `Done: ${d} of ${n} sentences`,
+    filter: 'Show', fAll: 'All sentence types', fAction: 'Only where I have something to do',
+    yours: 'Your sentences', theirs: 'To review (written by the other person)',
+    slot: (n) => `Sentence ${n}`,
+    st_empty: 'Empty', st_written: 'Written', st_tested: 'Tested', st_reviewed: 'Reviewed', st_done: 'Done',
+    placeholderMine: 'Write a sentence in your language',
+    save: 'Save', test: 'Test', translating: 'Translating…', saved: 'Saved.', testedSaved: 'Tested and saved.',
+    noChange: 'Nothing changed.',
+    confirmReplace: 'This clears the other person\'s review of this sentence. Continue?',
+    translation: 'Translation', back: 'Back-translation', ms: (n) => `${n} ms`,
+    version: (n) => `Version ${n}`,
+    noteLabel: 'Meaning or context for the reviewer (optional)', saveNote: 'Save note',
+    theirNote: 'Their note',
+    reviewedBy: 'Review of the translation',
+    notTestedYet: 'Not tested yet.',
+    judgeTranslation: 'Is the translation good?',
+    good: 'Good', awkward: 'Awkward', wrong: 'Wrong',
+    judgeBack: 'Did the back-translation keep your meaning?',
+    kept: 'Kept', changed: 'Changed',
+    remark: 'Remark (optional)', saveReview: 'Save review', saveCheck: 'Save check',
+    theirBack: 'Their back-translation (extra information)',
+    sentIn: 'Written in',
+    pending: 'Not reviewed yet.',
+    del: 'Delete', confirmDel: 'Delete this entry? It is kept in the history.',
+    reportTitle: 'Report (PDF)', reportHelp: 'A formatted report of everything in the sheet: a summary, the sentences that need attention, and all results by sentence type. Either of you can save it.',
+    reportLang: 'Report language', pdfButton: 'Save report as PDF', pdfBuilding: 'Building the report…',
+    pdfDone: (n) => `Saved: ${n}`, pdfFail: (m) => `Could not build the report: ${m}`,
+    adminTitle: 'Admin', exportCopy: 'Copy all results', exportFile: 'Save all results as a text file',
+    reset: 'Reset the whole sheet', confirmReset: 'Delete ALL entries from the sheet? (They stay in the history table.)',
+    copied: 'Copied. Paste it into the chat.', copyFail: 'Could not copy. Use the file option instead.',
+    error: (c) => ({ auth: 'Your session ended. Please enter your PIN again.', not_allowed: 'This is not allowed for your role.', not_tested: 'This sentence has not been tested yet.', bad_text: 'The sentence is empty or too long (maximum 1000 characters).', bad_rating: 'Choose a rating first.', not_found: 'This entry no longer exists.' }[c] || `Error: ${c}`),
+    langEn: 'English', langFr: 'French', cat: 'name_en', hint: 'hint_en',
+    authorWho: (a) => (a === 'admin' ? 'English speaker' : 'French speaker'),
+  },
+  fr: {
+    title: 'Test 1 · Feuille de test partagée',
+    signedIn: 'Connecté·e en tant que',
+    role_admin: 'Anglophone (admin)', role_partner: 'Francophone',
+    refresh: 'Actualiser', logout: 'Se déconnecter',
+    how: 'Écris tes phrases dans ta langue, touche Tester et vérifie le résultat. Puis évalue les phrases de l\'autre personne. Tout s\'enregistre automatiquement et vous le voyez tous les deux.',
+    updated: (t) => `Mis à jour à ${t}`,
+    cfgMissing: 'Cette page n\'est pas encore reliée à la base de données. L\'admin doit d\'abord terminer l\'installation.',
+    wrongPin: (n) => `Code incorrect. Encore ${n} essai(s) avant une pause.`,
+    locked: (m) => `Trop d\'essais incorrects. Réessaie dans environ ${m} minute(s).`,
+    netError: 'Impossible de joindre la base de données. Vérifie ta connexion et réessaie.',
+    sessionEnded: 'Ta session est terminée. Entre à nouveau ton code.',
+    enterPin: 'Entre ton code.',
+    translator: 'Traducteur sur ce téléphone',
+    translatorHelp: 'Chaque téléphone prépare son propre traducteur une seule fois (environ 60 Mo, quelques minutes la première fois). Rien de ce que tu écris n\'est envoyé à quelqu\'un pour être traduit : tout se fait sur ton téléphone.',
+    engine: 'Version du moteur', engineNew: 'Version récente 0.4.16 (recommandée)', engineOld: 'Version officielle 0.4.9',
+    beam: 'Mode de recherche', beamFast: 'Rapide', beamCareful: 'Soigné (plus lent)',
+    prepare: 'Télécharger et préparer (une seule fois)', preparing: 'Préparation…',
+    prepareStored: 'Démarrer le traducteur (sans téléchargement)', redo: 'Télécharger à nouveau (seulement en cas de problème)',
+    confirmRedo: 'Supprimer les modèles enregistrés et les télécharger à nouveau (environ 60 Mo) ?',
+    fromStorage: 'depuis la mémoire du téléphone, sans téléchargement', notStored: 'Les modèles ne sont pas encore enregistrés sur ce téléphone.',
+    foundStored: 'Modèles trouvés sur ce téléphone. Démarrage du traducteur…',
+    readyStored: (s) => `Prêt, depuis la mémoire du téléphone. Rien n'a été téléchargé. Durée : ${s} s.`,
+    readyDownloaded: (s, m) => `Prêt. ${m} Mo téléchargés puis enregistrés sur ce téléphone : c'est un téléchargement unique. Durée : ${s} s.`,
+    notReady: 'Pas encore préparé.',
+    ready: (s, lex) => `Prêt${lex ? '' : ' (sans listes de mots)'}. Durée : ${s} s.`,
+    prepFail: (m) => `${m} Tu peux aussi essayer l\'autre version du moteur.`,
+    needTranslator: 'Prépare d\'abord le traducteur (section « Traducteur » ci-dessus).',
+    toWrite: 'À écrire', toTest: 'À tester', toReview: 'À évaluer', toCheck: 'Traduction retour à vérifier', doneCount: (d, n) => `Terminé : ${d} phrases sur ${n}`,
+    filter: 'Afficher', fAll: 'Tous les types de phrases', fAction: 'Seulement ce qui me concerne',
+    yours: 'Tes phrases', theirs: 'À évaluer (écrites par l\'autre personne)',
+    slot: (n) => `Phrase ${n}`,
+    st_empty: 'Vide', st_written: 'Écrite', st_tested: 'Testée', st_reviewed: 'Évaluée', st_done: 'Terminée',
+    placeholderMine: 'Écris une phrase dans ta langue',
+    save: 'Enregistrer', test: 'Tester', translating: 'Traduction en cours…', saved: 'Enregistré.', testedSaved: 'Testé et enregistré.',
+    noChange: 'Rien n\'a changé.',
+    confirmReplace: 'Cela efface l\'évaluation de l\'autre personne pour cette phrase. Continuer ?',
+    translation: 'Traduction', back: 'Traduction retour', ms: (n) => `${n} ms`,
+    version: (n) => `Version ${n}`,
+    noteLabel: 'Sens ou contexte pour la personne qui évalue (facultatif)', saveNote: 'Enregistrer la note',
+    theirNote: 'Sa note',
+    reviewedBy: 'Évaluation de la traduction',
+    notTestedYet: 'Pas encore testée.',
+    judgeTranslation: 'La traduction est-elle bonne ?',
+    good: 'Bonne', awkward: 'Maladroite', wrong: 'Fausse',
+    judgeBack: 'La traduction retour garde-t-elle ton sens ?',
+    kept: 'Conservé', changed: 'Changé',
+    remark: 'Remarque (facultatif)', saveReview: 'Enregistrer l\'évaluation', saveCheck: 'Enregistrer la vérification',
+    theirBack: 'Sa traduction retour (information en plus)',
+    sentIn: 'Écrite en',
+    pending: 'Pas encore évaluée.',
+    del: 'Supprimer', confirmDel: 'Supprimer cette entrée ? Elle est conservée dans l\'historique.',
+    reportTitle: 'Rapport (PDF)', reportHelp: 'Un rapport mis en forme de tout ce qui est dans la feuille : un résumé, les phrases à surveiller et tous les résultats par type de phrases. Chacun de vous peut l\'enregistrer.',
+    reportLang: 'Langue du rapport', pdfButton: 'Enregistrer le rapport en PDF', pdfBuilding: 'Création du rapport…',
+    pdfDone: (n) => `Enregistré : ${n}`, pdfFail: (m) => `Impossible de créer le rapport : ${m}`,
+    adminTitle: 'Admin', exportCopy: 'Copier tous les résultats', exportFile: 'Enregistrer tous les résultats en fichier texte',
+    reset: 'Réinitialiser toute la feuille', confirmReset: 'Supprimer TOUTES les entrées de la feuille ? (Elles restent dans l\'historique.)',
+    copied: 'Copié. Colle-le dans la conversation.', copyFail: 'Impossible de copier. Utilise plutôt le fichier.',
+    error: (c) => ({ auth: 'Ta session est terminée. Entre à nouveau ton code.', not_allowed: 'Ce n\'est pas autorisé pour ton rôle.', not_tested: 'Cette phrase n\'a pas encore été testée.', bad_text: 'La phrase est vide ou trop longue (1000 caractères maximum).', bad_rating: 'Choisis d\'abord une note.', not_found: 'Cette entrée n\'existe plus.' }[c] || `Erreur : ${c}`),
+    langEn: 'anglais', langFr: 'français', cat: 'name_fr', hint: 'hint_fr',
+    authorWho: (a) => (a === 'admin' ? 'anglophone' : 'francophone'),
+  },
+};
+let LANG = 'en';
+const t = (k, ...a) => { const s = I18N[LANG][k] ?? I18N.en[k] ?? k; return typeof s === 'function' ? s(...a) : s; };
+
+// ---------- tiny helpers ----------
+const $ = (id) => document.getElementById(id);
+function el(tag, props = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (v === false || v == null) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v === true) e.setAttribute(k, '');
+    else e.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    e.append(typeof kid === 'object' ? kid : document.createTextNode(String(kid)));
+  }
+  return e;
+}
+const pause = (ms = 30) => new Promise((r) => setTimeout(r, ms));
+const mb = (n) => (n / 1048576).toFixed(1) + ' MB';
+const hhmm = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+// ---------- state ----------
+let session = null;
+let sheet = null;
+let pollTimer = null;
+let busy = 0;
+const drafts = new Map();         // textarea key -> text typed but not saved
+const draftRating = new Map();    // rating key -> chosen but not saved
+const openCats = new Set();
+let filterMode = 'all';
+
+const other = () => (session.role === 'admin' ? 'partner' : 'admin');
+
+// ---------- database calls ----------
+async function rpc(fn, args) {
+  const headers = { 'Content-Type': 'application/json', apikey: SUPABASE_KEY };
+  if (SUPABASE_KEY.startsWith('eyJ')) headers.Authorization = `Bearer ${SUPABASE_KEY}`;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(args) });
+  if (!res.ok) {
+    let m = '';
+    try { m = (await res.json()).message || ''; } catch { /* ignore */ }
+    const err = new Error(`HTTP ${res.status}${m ? ': ' + m : ''}`);
+    err.status = res.status;
+    throw err;
+  }
+  return await res.json();
+}
+
+// What went wrong, in plain words plus the technical detail, so a failure can be diagnosed from a screenshot.
+function explain(e) {
+  if (e && e.status) return `HTTP ${e.status}: ${e.message.replace(/^HTTP \d+:?\s*/, '') || 'no details'}`;
+  return `no answer from the server (${(e && e.message) || 'network error'})`;
+}
+
+// Harmless probe: asks for the sheet with a made-up session. A healthy setup answers "auth".
+async function diagnose() {
+  const box = $('login-msg');
+  box.className = 'msg'; box.textContent = '…';
+  try {
+    const r = await rpc('t1_get_sheet', { p_token: 'connection-check' });
+    if (r && r.ok === false && r.error === 'auth') {
+      box.className = 'msg ok';
+      box.textContent = 'Connected: the database and the sheet functions answer. / Connecté : la base de données et les fonctions de la feuille répondent.';
+    } else {
+      box.className = 'msg err';
+      box.textContent = `Unexpected answer: ${JSON.stringify(r).slice(0, 200)}`;
+    }
+  } catch (e) {
+    box.className = 'msg err';
+    let hint = '';
+    if (!e.status) hint = ' Could not connect at all: check the internet, the Supabase status page, and that the project is running (not paused).';
+    else if (e.status === 404) hint = ' The project answers, but the function was not found: the setup SQL did not run, or the API list needs a refresh.';
+    else if (e.status === 401 || e.status === 403) hint = ' The project answered but refused the key: check the public key in this page.';
+    box.textContent = `Problem: ${explain(e)}.${hint}`;
+  }
+}
+const call = (fn, args) => rpc(fn, { p_token: session.token, ...args });
+
+function configured() {
+  return SUPABASE_URL.startsWith('https://') && !SUPABASE_KEY.startsWith('PASTE_');
+}
+
+// ---------- login ----------
+function showLogin(message) {
+  SBar.toHub(); return;                       // one sign-in only: the hub
+  stopPolling();
+  session = null; sheet = null;
+  localStorage.removeItem(SESSION_KEY);
+  $('view-main').classList.add('hidden');
+  $('view-login').classList.remove('hidden');
+  $('pin').value = '';
+  const m = $('login-msg');
+  m.textContent = message || '';
+  m.className = 'msg' + (message ? ' err' : '');
+}
+
+async function doLogin() {
+  const pin = $('pin').value.trim();
+  const m = $('login-msg');
+  if (!pin) { m.textContent = t('enterPin'); m.className = 'msg err'; return; }
+  $('enter').disabled = true;
+  m.textContent = '…'; m.className = 'msg';
+  try {
+    const r = await rpc('t1_login', { p_pin: pin });
+    if (r.ok) {
+      session = { token: r.token, role: r.role, label: r.label, at: Date.now() };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      await enter();
+    } else if (r.error === 'locked') {
+      LANG = 'en';
+      m.textContent = `${t('locked', Math.ceil((r.retry_after || 60) / 60))}  /  ${I18N.fr.locked(Math.ceil((r.retry_after || 60) / 60))}`;
+      m.className = 'msg err';
+    } else {
+      m.textContent = `${I18N.en.wrongPin(r.remaining ?? 0)}  /  ${I18N.fr.wrongPin(r.remaining ?? 0)}`;
+      m.className = 'msg err';
+    }
+  } catch (e) {
+    m.textContent = `${I18N.en.netError}  /  ${I18N.fr.netError}  [${explain(e)}]`;
+    m.className = 'msg err';
+  } finally {
+    $('enter').disabled = false;
+    $('pin').value = '';
+  }
+}
+
+async function doLogout() {
+  try { if (session) await rpc('t1_logout', { p_token: session.token }); } catch { /* ignore */ }
+  showLogin();
+}
+
+function restoreSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    if (s && s.token && Date.now() - s.at < 11 * 3600 * 1000) { session = s; return true; }
+  } catch { /* ignore */ }
+  return false;
+}
+
+// ---------- entering the sheet ----------
+async function enter() {
+  LANG = SBar.lang();                          // follows the top-bar language (defaults by role at sign-in)
+  document.documentElement.lang = LANG;
+  $('view-login').classList.add('hidden');
+  $('view-main').classList.remove('hidden');
+  buildChrome();
+  buildTranslatorPanel();
+  autoStartTranslator();   // not awaited: the sheet opens while the translator starts
+  await refresh(true);
+  startPolling();
+}
+
+function buildChrome() {
+  $('t-title').textContent = t('title');
+  $('who').textContent = `${t('signedIn')}: ${t('role_' + session.role)}`;
+  $('how').textContent = t('how');
+  $('l-filter').textContent = t('filter');
+  const f = $('filter');
+  f.textContent = '';
+  f.append(el('option', { value: 'all', text: t('fAll') }), el('option', { value: 'action', text: t('fAction') }));
+  f.value = filterMode;
+}
+
+// ---------- translator (runs on this phone) ----------
+const TR_SETTINGS = 'sanctuaire-t1-translator-v1';
+const tr = { translator: null, ready: false, engineKind: 'engine2', beam: 1, lex: false, records: null, cached: false, downloaded: 0 };
+let MODEL_STORE = {};
+const versionKey = (v) => String(v || '0').split('.').map((x) => String(parseInt(x, 10) || 0).padStart(4, '0')).join('.');
+const isZstd = (u8) => u8.length > 4 && u8[0] === 0x28 && u8[1] === 0xb5 && u8[2] === 0x2f && u8[3] === 0xfd;
+const isGzip = (u8) => u8.length > 2 && u8[0] === 0x1f && u8[1] === 0x8b;
+const isLfsPointer = (u8) => new TextDecoder().decode(u8.slice(0, 40)).startsWith('version https://git-lfs');
+const hex = (buf) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+
+function concat(chunks, total) {
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const c of chunks) { out.set(c, o); o += c.length; }
+  return out;
+}
+
+async function decode(u8, label) {
+  if (isLfsPointer(u8)) throw new Error(`${label}: received a pointer file, not the real file.`);
+  if (isZstd(u8)) {
+    await pause();
+    const out = zstdDecompress(u8);
+    return out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength);
+  }
+  if (isGzip(u8)) {
+    const stream = new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return await new Response(stream).arrayBuffer();
+  }
+  return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+}
+
+async function loadRecords() {
+  if (tr.records) return tr.records;
+  const res = await fetch(`${HF}/records.json`, { credentials: 'omit' });
+  if (!res.ok) throw new Error(`The model list could not be fetched (HTTP ${res.status}).`);
+  const data = await res.json();
+  const arr = Array.isArray(data) ? data : (data.data || data.records || []);
+  const best = {};
+  for (const r of arr) {
+    const name = r.name || r.attachment?.filename || '';
+    const pair = (name.match(/\.(enfr|fren)\./) || [])[1] || `${r.sourceLanguage || ''}${r.targetLanguage || ''}`;
+    if (pair !== 'enfr' && pair !== 'fren') continue;
+    if (!['model', 'vocab', 'lex'].includes(r.fileType)) continue;
+    const key = `${r.fileType}:${pair}`;
+    if (!best[key] || versionKey(r.version) > versionKey(best[key].version)) best[key] = r;
+  }
+  tr.records = best;
+  return best;
+}
+
+async function fetchBytes(url, onBytes) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 300000);
+  try {
+    const res = await fetch(url, { credentials: 'omit', signal: ctl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const total = Number(res.headers.get('content-length')) || 0;
+    const reader = res.body.getReader();
+    const chunks = [];
+    let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      got += value.length;
+      onBytes(got, total);
+    }
+    return concat(chunks, got);
+  } finally { clearTimeout(timer); }
+}
+
+function localCandidates(rec) {
+  const names = new Set();
+  if (rec?.attachment?.location) names.add(rec.attachment.location.split('/').pop());
+  if (rec?.location) names.add(rec.location.split('/').pop());
+  if (rec?.name) { names.add(`${rec.name}.zst`); names.add(rec.name); }
+  const urls = [];
+  for (const n of names) { urls.push(`./models/${n}`); urls.push(`./${n}`); }
+  return urls;
+}
+
+function makeRow(name) {
+  const bar = el('progress', { max: 100, value: 0 });
+  const info = el('div', { class: 'muted', text: '…' });
+  $('tfiles').append(el('div', { class: 'file' }, el('div', { text: name }), bar, info));
+  return { bar, info };
+}
+
+async function getOne(type, pair, optional, opts = {}) {
+  const key = `${type}:${pair}`;
+  const row = makeRow(`${pair}: ${type === 'lex' ? LEX[pair].name : type}`);
+  if (!opts.force) {
+    const c = await store.get(key).catch(() => null);
+    if (c && c.buffer) {
+      row.bar.value = 100;
+      row.info.textContent = `${mb(c.buffer.byteLength)} · ${t('fromStorage')}`;
+      return c.buffer;
+    }
+  }
+  if (opts.cacheOnly && type !== 'lex') { row.info.textContent = '—'; throw new Error(t('notStored')); }
+  const records = opts.cacheOnly ? {} : await loadRecords();
+  const rec = records[key] || (type === 'lex' ? { name: LEX[pair].name, location: LEX[pair].location } : null);
+  const name = rec?.name || `${type}.${pair}`;
+  const urls = localCandidates(rec);
+  if (!opts.cacheOnly && type !== 'lex' && rec?.attachment?.location) urls.push(`${HF}/${rec.attachment.location}`);
+  let raw = null;
+  for (const url of urls) {
+    try {
+      raw = await fetchBytes(url, (got, total) => {
+        row.bar.value = total ? Math.round((got / total) * 100) : 0;
+        row.info.textContent = total ? `${mb(got)} / ${mb(total)}` : mb(got);
+      });
+      tr.downloaded += raw.length;
+      break;
+    } catch { raw = null; }
+  }
+  if (!raw) {
+    if (optional) { row.info.textContent = '—'; return null; }
+    row.info.textContent = 'Failed';
+    throw new Error(`Could not get ${name}.`);
+  }
+  row.info.textContent = '…';
+  const buf = await decode(raw, name);
+  row.bar.value = 100;
+  const expected = String(rec?.decompressedHash || '').toLowerCase();
+  let note = '';
+  if (expected && globalThis.crypto?.subtle) {
+    note = hex(await crypto.subtle.digest('SHA-256', buf)) === expected ? ' ✓' : ' (checksum differs)';
+  }
+  row.info.textContent = `${mb(buf.byteLength)}${note}`;
+  await store.put({ key, buffer: buf, name, version: rec?.version ?? null, bytes: buf.byteLength, savedAt: Date.now() }).catch(() => {});
+  return buf;
+}
+
+async function getPair(pair, opts) {
+  const model = await getOne('model', pair, false, opts);
+  const vocab = await getOne('vocab', pair, false, opts);
+  const lex = await getOne('lex', pair, true, opts);
+  return { model, vocab, lex };
+}
+
+async function runTranslate(text, from, to) {
+  const t0 = performance.now();
+  const r = await tr.translator.translate({ from, to, text, html: false });
+  return { text: r.target.text, ms: Math.round(performance.now() - t0) };
+}
+
+function setTStatus(text, kind) {
+  const s = $('tstatus');
+  s.textContent = text;
+  s.className = 'msg' + (kind ? ' ' + kind : '');
+}
+
+async function prepareTranslator(opts = {}) {
+  const btn = $('tprep'), redo = $('tredo');
+  btn.disabled = true; redo.disabled = true; btn.textContent = t('preparing');
+  $('tfiles').textContent = '';
+  tr.ready = false; tr.downloaded = 0;
+  tr.engineKind = $('tengine').value;
+  tr.beam = Number($('tbeam').value);
+  try { localStorage.setItem(TR_SETTINGS, JSON.stringify({ engine: tr.engineKind, beam: tr.beam })); } catch { /* ignore */ }
+  const t0 = performance.now();
+  try {
+    if (opts.force) { await store.clear().catch(() => {}); tr.cached = false; }
+    if (tr.translator) { try { await tr.translator.delete(); } catch { /* ignore */ } tr.translator = null; }
+    MODEL_STORE = {};
+    setTStatus(t('preparing'));
+    MODEL_STORE['en>fr'] = await getPair('enfr', opts);
+    MODEL_STORE['fr>en'] = await getPair('fren', opts);
+    const mod = await import(`./${tr.engineKind}/translator.js`);
+    const registry = async () => [{ from: 'en', to: 'fr' }, { from: 'fr', to: 'en' }];
+    class LocalBacking extends mod.TranslatorBacking {
+      loadModelRegistery() { return registry(); }
+      loadModelRegistry() { return registry(); }
+      async loadTranslationModel({ from, to }) {
+        const m = MODEL_STORE[`${from}>${to}`];
+        if (!m) throw new Error(`The ${from} to ${to} model is not loaded yet.`);
+        return { model: m.model, shortlist: m.lex || new ArrayBuffer(0), vocabs: [m.vocab], qualityModel: undefined, config: { 'beam-size': tr.beam } };
+      }
+    }
+    const backing = new LocalBacking({});
+    tr.translator = tr.engineKind === 'engine2'
+      ? new mod.LatencyOptimisedTranslator({ from: 'en', to: 'fr' }, {}, backing)
+      : new mod.LatencyOptimisedTranslator({}, backing);
+    await tr.translator.worker;
+    await runTranslate('Hello, how are you?', 'en', 'fr');
+    await runTranslate('Bonjour, comment allez-vous ?', 'fr', 'en');
+    tr.lex = !!(MODEL_STORE['en>fr'].lex && MODEL_STORE['fr>en'].lex);
+    tr.ready = true;
+    tr.cached = await store.isComplete();
+    if (tr.downloaded > 0) await store.persist();   // ask the browser to keep the stored models
+    const secs = Math.round((performance.now() - t0) / 1000);
+    setTStatus(tr.downloaded > 0 ? t('readyDownloaded', secs, Math.round(tr.downloaded / 1048576)) : t('readyStored', secs), 'ok');
+    $('tdetails').open = false;
+  } catch (e) {
+    console.error(e);
+    setTStatus(t('prepFail', e.message), 'err');
+  } finally {
+    btn.disabled = false; redo.disabled = false;
+    updatePrepLabels();
+  }
+}
+
+function updatePrepLabels() {
+  const b = $('tprep');
+  if (!b) return;
+  b.textContent = tr.cached ? t('prepareStored') : t('prepare');
+  $('tredo').classList.toggle('hidden', !tr.cached);
+}
+
+// Called after login: if the models are already stored on this phone, start the translator with no download.
+async function autoStartTranslator() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TR_SETTINGS) || 'null');
+    if (saved) { $('tengine').value = saved.engine; $('tbeam').value = String(saved.beam); }
+  } catch { /* ignore */ }
+  tr.cached = await store.isComplete();
+  updatePrepLabels();
+  if (tr.cached && !tr.ready) {
+    setTStatus(t('foundStored'));
+    await prepareTranslator({ cacheOnly: true });
+  }
+}
+
+function buildTranslatorPanel() {
+  const p = $('tpanel');
+  p.textContent = '';
+  const d = el('details', { class: 'plain', id: 'tdetails', open: !tr.ready },
+    el('summary', { text: t('translator') }),
+    el('p', { class: 'muted', text: t('translatorHelp') }),
+    el('label', { for: 'tengine', text: t('engine') }),
+    el('select', { id: 'tengine' },
+      el('option', { value: 'engine2', text: t('engineNew') }),
+      el('option', { value: 'engine', text: t('engineOld') })),
+    el('label', { for: 'tbeam', text: t('beam') }),
+    el('select', { id: 'tbeam' },
+      el('option', { value: '1', text: t('beamFast') }),
+      el('option', { value: '4', text: t('beamCareful') })),
+    el('div', { class: 'row' },
+      el('button', { id: 'tprep', type: 'button', text: t('prepare'), onclick: () => prepareTranslator({ cacheOnly: tr.cached }) }),
+      el('button', { id: 'tredo', type: 'button', class: 'secondary hidden', text: t('redo'), onclick: () => { if (confirm(t('confirmRedo'))) prepareTranslator({ force: true }); } })),
+    el('div', { id: 'tfiles', class: 'files' }),
+    el('div', { id: 'tstatus', class: 'msg', role: 'status', 'aria-live': 'polite', text: tr.ready ? t('ready', 0, tr.lex) : t('notReady') }));
+  p.append(d);
+  $('tengine').value = tr.engineKind;
+  $('tbeam').value = String(tr.beam);
+  updatePrepLabels();
+}
+
+function engineLabel() {
+  return `${tr.engineKind === 'engine2' ? 'newer 0.4.16' : 'official 0.4.9'}; beam ${tr.beam}; models v3.0${tr.lex ? ' with word lists' : ' without word lists'}`;
+}
+function deviceLabel() {
+  return `${navigator.userAgent.slice(0, 150)}; mem ${navigator.deviceMemory ?? '?'} GB; ${navigator.hardwareConcurrency ?? '?'} threads`;
+}
+
+// ---------- sheet data ----------
+const itemOf = (cat, author, slot) => sheet.items.find((i) => i.category_id === cat && i.author === author && i.slot === slot);
+
+async function refresh(force) {
+  if (!session) return;
+  try {
+    const r = await call('t1_get_sheet', {});
+    if (!r.ok) {
+      if (r.error === 'auth') { showLogin(t('sessionEnded')); return; }
+      return;
+    }
+    const changed = !sheet || JSON.stringify(sheet.items) !== JSON.stringify(r.items);
+    sheet = r;
+    $('updated').textContent = t('updated', hhmm(new Date()));
+    if (changed || force) renderSheet();
+  } catch (e) {
+    $('updated').textContent = t('netError');
+  }
+}
+
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(() => {
+    if (document.visibilityState !== 'visible' || busy > 0) return;
+    const a = document.activeElement;
+    if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT' || a.tagName === 'SELECT')) return;
+    refresh(false);
+  }, 8000);
+}
+function stopPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+
+// ---------- rendering ----------
+function pendingCounts() {
+  const me = session.role, them = other();
+  const mine = sheet.items.filter((i) => i.author === me);
+  const theirs = sheet.items.filter((i) => i.author === them);
+  const total = sheet.categories.length * 3;
+  return {
+    toWrite: total - mine.length,
+    toTest: mine.filter((i) => i.status === 'written').length,
+    toReview: theirs.filter((i) => i.translation && !i.translation_rating).length,
+    toCheck: mine.filter((i) => i.translation && !i.back_rating).length,
+    done: sheet.items.filter((i) => i.status === 'done').length,
+    totalSlots: total * 2,
+  };
+}
+
+function categoryHasAction(cat) {
+  for (let n = 1; n <= 3; n++) {
+    const m = itemOf(cat.id, session.role, n), o = itemOf(cat.id, other(), n);
+    if (!m || m.status === 'written' || (m.translation && !m.back_rating)) return true;
+    if (o && o.translation && !o.translation_rating) return true;
+  }
+  return false;
+}
+
+function renderSheet() {
+  const c = pendingCounts();
+  const sum = $('summary');
+  sum.textContent = '';
+  sum.append(
+    el('div', { text: t('doneCount', c.done, c.totalSlots) }),
+    el('div', { class: 'counts' },
+      el('span', { text: `${t('toWrite')}: ${c.toWrite}` }),
+      el('span', { text: `${t('toTest')}: ${c.toTest}` }),
+      el('span', { text: `${t('toReview')}: ${c.toReview}` }),
+      el('span', { text: `${t('toCheck')}: ${c.toCheck}` })));
+
+  const host = $('cats');
+  const scrollY = window.scrollY;
+  host.textContent = '';
+  for (const cat of sheet.categories) {
+    if (filterMode === 'action' && !categoryHasAction(cat)) continue;
+    host.append(renderCategory(cat));
+  }
+  window.scrollTo(0, scrollY);
+  renderAdmin();
+}
+
+function renderCategory(cat) {
+  const doneN = sheet.items.filter((i) => i.category_id === cat.id && i.status === 'done').length;
+  const d = el('details', { class: 'cat', open: openCats.has(cat.id) },
+    el('summary', {}, el('span', { text: cat[t('cat')] }), el('span', { class: 'prog', text: `${doneN}/6` })));
+  d.addEventListener('toggle', () => { if (d.open) openCats.add(cat.id); else openCats.delete(cat.id); });
+  const body = el('div', { class: 'body' }, el('p', { class: 'muted', text: cat[t('hint')] }));
+  body.append(el('h2', { text: t('yours') }));
+  for (let n = 1; n <= 3; n++) body.append(mineSlot(cat, n, itemOf(cat.id, session.role, n)));
+  body.append(el('h2', { text: t('theirs') }));
+  for (let n = 1; n <= 3; n++) body.append(theirSlot(cat, n, itemOf(cat.id, other(), n)));
+  d.append(body);
+  return d;
+}
+
+function chip(status) {
+  return el('span', { class: `chip ${status}`, text: t('st_' + status) });
+}
+
+function msgBox() { return el('div', { class: 'msg', role: 'status', 'aria-live': 'polite' }); }
+function setMsg(box, text, kind) { box.textContent = text; box.className = 'msg' + (kind ? ' ' + kind : ''); }
+
+function draftArea(key, initial, props = {}) {
+  const ta = el('textarea', props);
+  ta.value = drafts.has(key) ? drafts.get(key) : (initial || '');
+  ta.addEventListener('input', () => drafts.set(key, ta.value));
+  return ta;
+}
+
+function ratingButtons(key, values, labelKeys, current) {
+  const wrap = el('div', { class: 'rate' + (values.length === 2 ? ' two' : '') });
+  const chosen = draftRating.get(key) ?? current ?? null;
+  for (const v of values) {
+    const b = el('button', { type: 'button', 'data-v': v, 'aria-pressed': String(chosen === v), text: t(labelKeys[v]) });
+    b.addEventListener('click', () => {
+      draftRating.set(key, v);
+      for (const x of wrap.querySelectorAll('button')) x.setAttribute('aria-pressed', String(x === b));
+    });
+    wrap.append(b);
+  }
+  return wrap;
+}
+
+function handleResult(r, box) {
+  if (r && r.ok) return true;
+  if (r && r.error === 'auth') { showLogin(t('sessionEnded')); return false; }
+  setMsg(box, t('error', r?.error || 'unknown'), 'err');
+  return false;
+}
+
+// ---- one of my own sentences ----
+function mineSlot(cat, n, item) {
+  const key = `src:${cat.id}:${n}`;
+  const box = msgBox();
+  const status = item ? item.status : 'empty';
+  const root = el('div', { class: 'slot' },
+    el('div', { class: 'slot-head' },
+      el('h3', { text: t('slot', n) + (item && item.attempt > 1 ? ` · ${t('version', item.attempt)}` : '') }),
+      chip(status)));
+  const ta = draftArea(key, item?.source_text, { placeholder: t('placeholderMine'), maxlength: '1000', 'aria-label': `${cat[t('cat')]} · ${t('slot', n)}` });
+  root.append(ta);
+
+  const saveBtn = el('button', { type: 'button', class: 'secondary', text: t('save') });
+  const testBtn = el('button', { type: 'button', text: t('test') });
+  root.append(el('div', { class: 'row' }, saveBtn, testBtn), box);
+
+  const confirmIfReviewed = () => !(item && (item.translation_rating || item.back_rating)) || confirm(t('confirmReplace'));
+
+  saveBtn.addEventListener('click', async () => {
+    const text = ta.value.trim();
+    if (item && item.source_text === text && item.translation) { setMsg(box, t('noChange')); return; }
+    if (!text) { setMsg(box, t('error', 'bad_text'), 'err'); return; }
+    if (!confirmIfReviewed()) return;
+    busy++; saveBtn.disabled = testBtn.disabled = true;
+    try {
+      const r = await call('t1_save_item', { p_category: cat.id, p_slot: n, p_source: text });
+      if (handleResult(r, box)) { drafts.delete(key); await refresh(true); }
+    } catch { setMsg(box, t('netError'), 'err'); }
+    finally { busy--; saveBtn.disabled = testBtn.disabled = false; }
+  });
+
+  testBtn.addEventListener('click', async () => {
+    const text = ta.value.trim();
+    if (!text) { setMsg(box, t('error', 'bad_text'), 'err'); return; }
+    if (!tr.ready) { $('tdetails').open = true; setMsg(box, t('needTranslator'), 'err'); $('tpanel').scrollIntoView({ block: 'center' }); return; }
+    if (!confirmIfReviewed()) return;
+    busy++; saveBtn.disabled = testBtn.disabled = true;
+    setMsg(box, t('translating'));
+    try {
+      const [from, to] = session.role === 'admin' ? ['en', 'fr'] : ['fr', 'en'];
+      const a = await runTranslate(text, from, to);
+      const b = await runTranslate(a.text, to, from);
+      const r = await call('t1_save_item', {
+        p_category: cat.id, p_slot: n, p_source: text, p_translation: a.text, p_back: b.text,
+        p_ms_out: a.ms, p_ms_back: b.ms, p_engine: engineLabel(), p_device: deviceLabel(),
+      });
+      if (handleResult(r, box)) { drafts.delete(key); await refresh(true); }
+    } catch (e) {
+      console.error(e);
+      setMsg(box, `${e.message || t('netError')}`, 'err');
+    } finally { busy--; saveBtn.disabled = testBtn.disabled = false; }
+  });
+
+  if (item && item.translation) {
+    root.append(
+      el('div', { class: 'box' }, el('small', { text: `${t('translation')} · ${t('ms', item.ms_out ?? 0)}` }), item.translation),
+      el('div', { class: 'box' }, el('small', { text: `${t('back')} · ${t('ms', item.ms_back ?? 0)}` }), item.back_translation || ''));
+
+    // note for the reviewer
+    const nkey = `note:${item.id}`, nbox = msgBox();
+    const nta = draftArea(nkey, item.author_note, { class: 'short', maxlength: '500', 'aria-label': t('noteLabel') });
+    const nbtn = el('button', { type: 'button', class: 'secondary', text: t('saveNote') });
+    nbtn.addEventListener('click', async () => {
+      busy++; nbtn.disabled = true;
+      try {
+        const r = await call('t1_set_note', { p_item: item.id, p_note: nta.value });
+        if (handleResult(r, nbox)) { drafts.delete(nkey); await refresh(true); }
+      } catch { setMsg(nbox, t('netError'), 'err'); } finally { busy--; nbtn.disabled = false; }
+    });
+    root.append(el('label', { text: t('noteLabel') }), nta, el('div', { class: 'row' }, nbtn), nbox);
+
+    // what the reviewer said
+    root.append(el('div', { class: 'reviewline' },
+      el('strong', { text: `${t('reviewedBy')}: ` }),
+      item.translation_rating ? `${t(item.translation_rating)}${item.translation_remark ? ' · ' + item.translation_remark : ''}` : t('pending')));
+
+    // my check of the back-translation
+    const bkey = `back:${item.id}`, rkey = `backremark:${item.id}`, bbox = msgBox();
+    const rta = draftArea(rkey, item.back_remark, { class: 'short', maxlength: '500', 'aria-label': t('remark') });
+    const bsave = el('button', { type: 'button', text: t('saveCheck') });
+    bsave.addEventListener('click', async () => {
+      const v = draftRating.get(bkey) ?? item.back_rating;
+      if (!v) { setMsg(bbox, t('error', 'bad_rating'), 'err'); return; }
+      busy++; bsave.disabled = true;
+      try {
+        const r = await call('t1_rate', { p_item: item.id, p_kind: 'back', p_rating: v, p_remark: rta.value });
+        if (handleResult(r, bbox)) { draftRating.delete(bkey); drafts.delete(rkey); await refresh(true); }
+      } catch { setMsg(bbox, t('netError'), 'err'); } finally { busy--; bsave.disabled = false; }
+    });
+    root.append(el('label', { text: t('judgeBack') }),
+      ratingButtons(bkey, ['kept', 'changed'], { kept: 'kept', changed: 'changed' }, item.back_rating),
+      el('label', { text: t('remark') }), rta, el('div', { class: 'row' }, bsave), bbox);
+  }
+
+  if (item && session.role === 'admin') root.append(deleteButton(item));
+  return root;
+}
+
+// ---- one of the other person's sentences, for me to review ----
+function theirSlot(cat, n, item) {
+  const root = el('div', { class: 'slot' },
+    el('div', { class: 'slot-head' },
+      el('h3', { text: `${t('slot', n)} · ${t('authorWho', other())}` }),
+      chip(item ? item.status : 'empty')));
+  if (!item) { root.append(el('p', { class: 'muted', text: '—' })); return root; }
+
+  const srcLang = item.author === 'admin' ? t('langEn') : t('langFr');
+  root.append(el('div', { class: 'box' }, el('small', { text: `${t('sentIn')} ${srcLang}` }), item.source_text));
+  if (item.author_note) root.append(el('div', { class: 'box' }, el('small', { text: t('theirNote') }), item.author_note));
+
+  if (!item.translation) {
+    root.append(el('p', { class: 'muted', text: t('notTestedYet') }));
+  } else {
+    root.append(el('div', { class: 'box' }, el('small', { text: t('translation') }), item.translation));
+    const det = el('details', { class: 'plain' }, el('summary', { text: t('theirBack') }), el('div', { class: 'box' }, item.back_translation || ''));
+    root.append(det);
+
+    const key = `rev:${item.id}`, rkey = `revremark:${item.id}`, box = msgBox();
+    const rta = draftArea(rkey, item.translation_remark, { class: 'short', maxlength: '500', 'aria-label': t('remark') });
+    const save = el('button', { type: 'button', text: t('saveReview') });
+    save.addEventListener('click', async () => {
+      const v = draftRating.get(key) ?? item.translation_rating;
+      if (!v) { setMsg(box, t('error', 'bad_rating'), 'err'); return; }
+      busy++; save.disabled = true;
+      try {
+        const r = await call('t1_rate', { p_item: item.id, p_kind: 'translation', p_rating: v, p_remark: rta.value });
+        if (handleResult(r, box)) { draftRating.delete(key); drafts.delete(rkey); await refresh(true); }
+      } catch { setMsg(box, t('netError'), 'err'); } finally { busy--; save.disabled = false; }
+    });
+    root.append(el('label', { text: t('judgeTranslation') }),
+      ratingButtons(key, ['good', 'awkward', 'wrong'], { good: 'good', awkward: 'awkward', wrong: 'wrong' }, item.translation_rating),
+      el('label', { text: t('remark') }), rta, el('div', { class: 'row' }, save), box);
+  }
+  if (session.role === 'admin') root.append(deleteButton(item));
+  return root;
+}
+
+function deleteButton(item) {
+  const box = msgBox();
+  const b = el('button', { type: 'button', class: 'danger', text: t('del') });
+  b.addEventListener('click', async () => {
+    if (!confirm(t('confirmDel'))) return;
+    busy++; b.disabled = true;
+    try {
+      const r = await call('t1_delete_item', { p_item: item.id });
+      if (handleResult(r, box)) await refresh(true);
+    } catch { setMsg(box, t('netError'), 'err'); } finally { busy--; b.disabled = false; }
+  });
+  return el('div', {}, el('div', { class: 'row' }, b), box);
+}
+
+// ---------- admin ----------
+function exportText() {
+  const L = [];
+  const roleName = (r) => (r === 'admin' ? 'English speaker (admin)' : 'French speaker');
+  L.push('Sanctuaire Test 1 shared sheet export', `Exported: ${new Date().toISOString()}`, '');
+  for (const cat of sheet.categories) {
+    L.push(`=== ${cat.id}. ${cat.name_en} ===`);
+    for (const author of ['admin', 'partner']) {
+      for (let n = 1; n <= 3; n++) {
+        const i = itemOf(cat.id, author, n);
+        if (!i) continue;
+        L.push(`[${roleName(author)} #${n}] status: ${i.status}; version ${i.attempt}; direction ${author === 'admin' ? 'EN->FR' : 'FR->EN'}`);
+        L.push(`  source: ${i.source_text}`);
+        if (i.author_note) L.push(`  author note: ${i.author_note}`);
+        if (i.translation) L.push(`  translation: ${i.translation} (${i.ms_out ?? '?'} ms)`, `  back-translation: ${i.back_translation} (${i.ms_back ?? '?'} ms)`);
+        if (i.translation_rating) L.push(`  translation rating (by the other person): ${i.translation_rating}${i.translation_remark ? ' | ' + i.translation_remark : ''}`);
+        if (i.back_rating) L.push(`  back-translation check (by the author): ${i.back_rating}${i.back_remark ? ' | ' + i.back_remark : ''}`);
+        if (i.engine) L.push(`  engine: ${i.engine}`);
+        if (i.device) L.push(`  device: ${i.device}`);
+      }
+    }
+    L.push('');
+  }
+  return L.join('\n');
+}
+
+function renderAdmin() {
+  const a = $('admin');
+  if (session.role !== 'admin') { a.classList.add('hidden'); return; }
+  a.classList.remove('hidden');
+  a.textContent = '';
+  const box = msgBox();
+  const copy = el('button', { type: 'button', class: 'secondary', text: t('exportCopy') });
+  copy.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(exportText()); setMsg(box, t('copied'), 'ok'); } catch { setMsg(box, t('copyFail'), 'err'); }
+  });
+  const file = el('button', { type: 'button', class: 'secondary', text: t('exportFile') });
+  file.addEventListener('click', () => {
+    const blob = new Blob([exportText()], { type: 'text/plain' });
+    const link = el('a', { href: URL.createObjectURL(blob), download: 'sanctuaire-test1-sheet.txt' });
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+  });
+  const reset = el('button', { type: 'button', class: 'danger', text: t('reset') });
+  reset.addEventListener('click', async () => {
+    if (!confirm(t('confirmReset'))) return;
+    try {
+      const r = await call('t1_reset', {});
+      if (handleResult(r, box)) await refresh(true);
+    } catch { setMsg(box, t('netError'), 'err'); }
+  });
+  a.append(el('h2', { text: t('adminTitle') }), el('div', { class: 'row' }, copy, file), el('div', { class: 'row' }, reset), box);
+}
+
+// ---------- PDF report ----------
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el2 = document.createElement('script');
+    el2.src = src;
+    el2.onload = resolve;
+    el2.onerror = () => reject(new Error(`Could not load ${src}`));
+    document.head.append(el2);
+  });
+}
+async function fetchBase64(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  const u8 = new Uint8Array(await res.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+// ---------- start ----------
+$('enter').addEventListener('click', doLogin);
+$('check').addEventListener('click', diagnose);
+$('pin').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+$('filter').addEventListener('change', () => { filterMode = $('filter').value; if (sheet) renderSheet(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && session) refresh(false); });
+
+if (!configured()) {
+  $('cfg').textContent = `${I18N.en.cfgMissing}  /  ${I18N.fr.cfgMissing}`;
+  $('cfg').classList.remove('hidden');
+} else if (restoreSession()) {
+  enter().catch(() => showLogin());
+} else {
+  showLogin();
+}
+window.addEventListener('sanctuaire-lang', () => location.reload());
+</script>
+</body>
+</html>
