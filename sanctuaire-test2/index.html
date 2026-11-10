@@ -225,7 +225,7 @@ const I18N = {
     ev: { approve: 'a approuvé le français proposé', suggest: 'a proposé une modification', counter: 'a répondu', accept: 'a gardé le français d’origine', admin_approve: 'a approuvé sa version', admin_reject: 'a refusé sa modification', admin_keep: 'a gardé le français d’origine', admin_reopen: 'a rouvert ce texte' },
     by: { admin: 'L’anglophone', partner: 'La francophone' },
     repTitle: 'Rapport (PDF)', repHelp: '', repLang: '', pdf: '',
-    pdfBusy: '', pdfDone: '', pdfFail: '', resetTitle: '', resetHelp: '', reset: '', resetDone: '',
+    pdfBusy: '', pdfDone: '', pdfFail: '', resetTitle: 'Recommencer', resetHelp: 'Supprime toutes les relectures et tout l’historique. Écris RESET puis appuie sur le bouton. Cette action est irréversible.', reset: 'Tout supprimer', resetDone: 'Tout a été supprimé.',
     sending: 'Enregistrement…', saved: 'Enregistré.',
     ph: { name: 'un prénom', time: 'une heure comme 20:42', date: 'une date', n: 'un nombre', total: 'un nombre', done: 'un nombre', lang: 'un nom de langue', LANG: 'un nom de langue en majuscules', lang2: 'un nom de langue', from: 'un nom de langue', to: 'un nom de langue', size: 'une taille de fichier' },
     types: { button: 'bouton', tab: 'onglet du menu', title: 'titre', label: 'petit libellé', text: 'phrase', short: 'ligne courte', placeholder: 'aide de saisie', notification: 'notification', phrase: 'message fixe', word: 'mot' }
@@ -512,9 +512,11 @@ async function act(sid, action, extra) {
 function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('load ' + src)); document.head.append(s); }); }
 async function fetchB64(url) { const r = await fetch(url); if (!r.ok) throw new Error('font'); const b = new Uint8Array(await r.arrayBuffer()); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); }
 async function doReset() {
-  const r = await call('t2_reset_all', { p_token: session.token, p_confirm: $('resetWord').value.trim() });
-  if (r.ok) { $('resetWord').value = ''; ui.forms = {}; flash(t('resetDone'), 'ok'); await refresh(true, true); }
-  else flash(t('errs')[r.error] || t('errs').default, 'err');
+  try {
+    const r = await call('t2_reset_all', { p_token: session.token, p_confirm: $('resetWord').value.trim() });
+    if (r.ok) { $('resetWord').value = ''; ui.forms = {}; flash(t('resetDone'), 'ok'); await refresh(true, true); }
+    else flash(t('errs')[r.error] || t('errs').default, 'err');
+  } catch (e) { console.error(e); flash(t('errs').default, 'err'); }   // before: a server error was swallowed silently
 }
 
 /* ---------- start ---------- */
