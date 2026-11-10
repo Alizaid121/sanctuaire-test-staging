@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sanctuaire · Test 2 · Guide for the English speaker (admin)</title>
+<style>
+body{margin:0;background:#eef1f5;color:#1b2430;font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:44rem;margin:0 auto;padding:1rem 1rem 4rem}
+h1{font-size:1.4rem;margin:.8rem 0 .3rem}h2{font-size:1.1rem;margin:1.6rem 0 .4rem;border-top:1px solid #d5dbe3;padding-top:1rem}
+.box{background:#fff;border:1px solid #d5dbe3;border-radius:10px;padding:.8rem 1rem;margin:.7rem 0}
+code{background:#e3e8ee;padding:.05rem .35rem;border-radius:4px}
+.warn{border-color:#a86b12;background:#fff8e8}
+table{border-collapse:collapse;width:100%;font-size:.95rem}td,th{border:1px solid #d5dbe3;padding:.4rem .5rem;text-align:left;vertical-align:top;background:#fff}
+</style></head><body><main>
+<h1>Test 2 · Guide for the English speaker (admin)</h1>
+<p>Test 2 checks the French text of the whole app. The French speaker reviews 258 short texts (buttons, titles, messages). You are the admin: you approve or reject her changes. Everything is saved and kept as history. At the end you export a PDF and send it to Claude in the chat.</p>
+
+<h2>Part 1 · One-time setup (you only, about 15 minutes)</h2>
+<div class="box"><b>Step 1 · Put the page on GitHub</b>
+<ol>
+<li>In the <code>sanctuaire-test</code> repository, create the folder <code>sanctuaire-test2</code> (the same way <code>sanctuaire-test1</code> is there).</li>
+<li>Upload the 5 files from the folder <code>upload-to-github/sanctuaire-test2</code> of the package: <code>index.html</code>, <code>strings.js</code>, <code>report.js</code>, <code>guide-admin.html</code>, <code>guide-fr.html</code>.</li>
+<li>Do not delete or change <code>sanctuaire-test1</code>: the PDF report of Test 2 reuses its PDF files (<code>vendor</code> folder).</li>
+<li>Wait 1 to 2 minutes. The page will be at <code>https://alizaid121.github.io/sanctuaire-test/sanctuaire-test2/</code></li>
+</ol></div>
+<div class="box warn"><b>Never upload the two <code>.sql</code> files to GitHub.</b> They are in the folder <code>database</code> of the package. The repository is public, and the second file will contain your PINs.</div>
+<div class="box"><b>Step 2 · Create the Test 2 tables in Supabase</b>
+<ol>
+<li>Open your Supabase project (the same one as Test 1), then <b>SQL Editor</b>, then <b>New query</b>.</li>
+<li>Open <code>1-setup.sql</code>, copy everything, paste it, press <b>Run</b>.</li>
+<li>You should see “Success. No rows returned”. It only adds new things whose names start with <code>t2_</code>. Test 1 is not touched.</li>
+</ol></div>
+<div class="box"><b>Step 3 · Set the two PINs (the same as in Test 1)</b>
+<ol>
+<li>Open <code>2-set-pins.sql</code> on your computer or phone and replace <code>CHANGE-ME-ADMIN-PIN</code> with your Test 1 PIN, and <code>CHANGE-ME-PARTNER-PIN</code> with the French speaker’s Test 1 PIN. Keep the quotes.</li>
+<li>Paste it in a new query in the SQL Editor and press <b>Run</b>. If you left a CHANGE-ME text, it stops with a message and changes nothing.</li>
+<li>Delete the edited file afterwards. The PINs are stored scrambled in the database; Test 1’s own PINs are not changed.</li>
+</ol>
+<p class="muted">Test 2 keeps its own list of PINs, so you set them once more here. If you do not remember a Test 1 PIN, choose a new one and tell the French speaker.</p></div>
+<div class="box"><b>Step 4 · Check it works</b>
+<ol>
+<li>Open the page. Press <b>Check the connection</b>. You should see “Connected. The Test 2 database is ready.”</li>
+<li>If it says the functions were not found, Step 2 was not run in the same Supabase project.</li>
+<li>Log in with your PIN. The page is in English. The French speaker’s PIN opens the same page in French.</li>
+</ol></div>
+<div class="box"><b>Step 5 · Invite the French speaker</b>
+<p>Send her the page link and the French guide: <code>https://alizaid121.github.io/sanctuaire-test/sanctuaire-test2/guide-fr.html</code>. She uses her Test 1 PIN.</p></div>
+
+<h2>Part 2 · How the test works</h2>
+<div class="box">
+<p>Each text shows: the English, the proposed French, where it appears in the app, and how much space it has on screen (a number of characters). Texts are grouped by category and each category shows how many are agreed.</p>
+<table>
+<tr><th>Status</th><th>What happened</th><th>Who acts next</th></tr>
+<tr><td>To review</td><td>Nobody has touched it</td><td>French speaker</td></tr>
+<tr><td>Agreed (original French)</td><td>She approved the proposed French. Done.</td><td>—</td></tr>
+<tr><td>Change suggested</td><td>She wrote another French (with an optional reason and note)</td><td><b>You</b></td></tr>
+<tr><td>Rejected, waiting for a reply</td><td>You rejected it with a note</td><td>French speaker</td></tr>
+<tr><td>Reply sent</td><td>She answered your note, maybe with a new French</td><td><b>You</b></td></tr>
+<tr><td>Agreed (changed)</td><td>You approved her version. Done.</td><td>—</td></tr>
+</table></div>
+<div class="box"><b>Your buttons</b>
+<ul>
+<li><b>Approve her version</b>: her French becomes the final one.</li>
+<li><b>Reject with a note</b>: the note is required. She sees it and can reply.</li>
+<li><b>Keep the original</b>: ends the discussion with Claude’s French. Use it if you cannot agree.</li>
+<li><b>Reopen</b>: on an agreed text, to discuss it again. The old history stays.</li>
+</ul>
+<p>Use the filter <b>Waiting for me</b> to see only what needs you. Every step stays in the text’s <b>History</b>, and the page refreshes by itself every few seconds.</p></div>
+<div class="box"><b>What to look at</b>
+<ul>
+<li>Is it short enough? The page counts her letters against the space on screen.</li>
+<li>Is it natural, in “tu”, and in the feminine where it speaks about her?</li>
+<li>Parts in curly brackets like <code>{name}</code> or <code>{n}</code> are filled in by the app; she must keep them exactly (the page checks).</li>
+</ul></div>
+
+<h2>Part 3 · Finishing</h2>
+<div class="box"><ol>
+<li>Work until nothing is left under <b>Waiting for me</b>, and the French speaker has nothing left to review. If you disagree for good, use <b>Keep the original</b>.</li>
+<li>Scroll to the bottom to <b>Report (PDF)</b>. Choose English, press <b>Download the PDF report</b>.</li>
+<li>Send the PDF to Claude in the chat. It lists the summary, what is still open, the final French of every text, and the discussion history.</li>
+<li>Claude then builds the French screens (D9) from the final French.</li></ol></div>
+<div class="box"><b>Start again</b>: at the very bottom, type <code>RESET</code> and press the button. It deletes every review and all history, and cannot be undone.</div>
+
+<h2>If something goes wrong</h2>
+<table>
+<tr><th>Problem</th><th>What to do</th></tr>
+<tr><td>“Wrong PIN” / “Too many wrong tries”</td><td>After 5 wrong tries the page pauses for 5 minutes. Wait, then try again. Check that Step 3 used the right PINs.</td></tr>
+<tr><td>“Functions not found”</td><td>Run <code>1-setup.sql</code> in the same Supabase project as the page uses.</td></tr>
+<tr><td>Page not found after upload</td><td>Wait a few minutes. Check the folder name is exactly <code>sanctuaire-test2</code> and that <code>index.html</code> is inside it.</td></tr>
+<tr><td>The PDF cannot be created</td><td>The folder <code>sanctuaire-test1/vendor</code> must still be in the repository.</td></tr>
+<tr><td>Logged out by itself</td><td>Sessions last about 11 hours. Log in again; nothing is lost.</td></tr>
+<tr><td>You see an old version</td><td>Press <b>Refresh</b> on the page, or reload with the browser.</td></tr>
+</table>
+<p class="muted">The 5 tries and 5 minutes pause are my choice, because I could not read Test 1’s database code. If Test 1 behaves differently, tell Claude.</p>
+</main></body></html>

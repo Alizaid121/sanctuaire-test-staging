@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sanctuaire · Test 2 · French translation review</title>
+<style>
+  :root {
+    --bg: #eef1f5; --panel: #ffffff; --ink: #1b2430; --muted: #5b6676; --line: #d5dbe3;
+    --accent: #2f6f8f; --good: #2f7d5b; --warn: #a86b12; --bad: #b4452f; --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 46rem; margin: 0 auto; padding: 1rem 1rem 6rem; }
+  h1 { font-size: 1.4rem; line-height: 1.25; margin: 0.75rem 0 0.25rem; }
+  h2 { font-size: 1.05rem; margin: 1rem 0 0.4rem; }
+  p { margin: 0.35rem 0; }
+  .muted { color: var(--muted); font-size: 0.9rem; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; margin-top: 0.9rem; }
+  .hidden { display: none !important; }
+  label { display: block; font-weight: 600; margin: 0.7rem 0 0.25rem; }
+  textarea, select, input[type="password"], input[type="search"], input[type="text"] {
+    width: 100%; font: inherit; color: inherit; background: #fff;
+    border: 1px solid var(--line); border-radius: 8px; padding: 0.55rem 0.65rem;
+  }
+  textarea { min-height: 3.2rem; resize: vertical; }
+  button {
+    font: inherit; min-height: 2.75rem; padding: 0.45rem 0.9rem; border-radius: 8px;
+    border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.secondary { background: #fff; color: var(--accent); }
+  button.good { background: var(--good); border-color: var(--good); }
+  button.danger { background: #fff; color: var(--bad); border-color: var(--bad); }
+  button.link { background: none; border: 0; color: var(--accent); padding: 0.4rem 0; min-height: 2.75rem; text-decoration: underline; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button:focus-visible, textarea:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible {
+    outline: 3px solid #f0b429; outline-offset: 2px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; flex-wrap: wrap; }
+  .banner { padding: 0.65rem 0.8rem; border-radius: 8px; border: 1px solid var(--line); background: #fff; margin-top: 0.7rem; }
+  .banner.err { border-color: var(--bad); color: var(--bad); }
+  .banner.ok { border-color: var(--good); color: var(--good); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: 0.5rem; margin-top: 0.7rem; }
+  .stat { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 0.45rem 0.6rem; }
+  .stat b { display: block; font-size: 1.25rem; }
+  .bar { height: 0.55rem; background: #e3e8ee; border-radius: 99px; overflow: hidden; margin-top: 0.6rem; }
+  .bar > i { display: block; height: 100%; background: var(--good); }
+  .filters { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.7rem; }
+  .filters .wide { grid-column: 1 / -1; }
+  details.cat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin-top: 0.8rem; }
+  details.cat > summary { cursor: pointer; padding: 0.85rem 1rem; font-weight: 700; list-style: none; display: flex; justify-content: space-between; gap: 0.5rem; }
+  details.cat > summary::-webkit-details-marker { display: none; }
+  details.cat > summary small { font-weight: 400; color: var(--muted); white-space: nowrap; }
+  .cat-body { padding: 0 0.8rem 0.8rem; }
+  .item { border-top: 1px solid var(--line); padding: 0.8rem 0.2rem; }
+  .item:first-child { border-top: 0; }
+  .meta { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; font-size: 0.8rem; color: var(--muted); }
+  .meta code { background: #eef1f5; padding: 0.05rem 0.35rem; border-radius: 4px; }
+  .chip { display: inline-block; padding: 0.05rem 0.55rem; border-radius: 99px; font-size: 0.8rem; border: 1px solid var(--line); background: #fff; color: var(--muted); }
+  .chip.pending { color: var(--muted); }
+  .chip.suggested, .chip.countered { color: var(--warn); border-color: var(--warn); }
+  .chip.rejected { color: var(--bad); border-color: var(--bad); }
+  .chip.agreed { color: var(--good); border-color: var(--good); }
+  .en { font-size: 1.05rem; font-weight: 650; margin: 0.35rem 0 0.2rem; overflow-wrap: anywhere; }
+  .frbox { background: #f6f8fb; border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 0.7rem; margin-top: 0.3rem; overflow-wrap: anywhere; }
+  .frbox small { display: block; color: var(--muted); font-size: 0.78rem; }
+  .frbox.sug { background: #fff8e8; border-color: #ecd9a6; }
+  .frbox.fin { background: #eaf6ef; border-color: #b7dcc7; }
+  .hint { font-size: 0.85rem; color: var(--muted); margin-top: 0.35rem; }
+  .count { font-size: 0.85rem; color: var(--muted); }
+  .count.over { color: var(--bad); font-weight: 700; }
+  .form { margin-top: 0.6rem; padding: 0.7rem; border: 1px dashed var(--line); border-radius: 8px; background: #fbfcfe; }
+  details.hist { margin-top: 0.5rem; }
+  details.hist summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; min-height: 2.2rem; }
+  .ev { border-left: 3px solid var(--line); padding: 0.1rem 0 0.1rem 0.6rem; margin: 0.4rem 0; font-size: 0.9rem; }
+  .ev.admin { border-color: var(--accent); }
+  .ev.partner { border-color: var(--warn); }
+  .ev time { color: var(--muted); font-size: 0.78rem; display: block; }
+  #loginCard { max-width: 26rem; margin: 3rem auto 0; }
+  #pin { font-size: 1.4rem; letter-spacing: 0.25em; text-align: center; }
+  .sr { position: absolute; left: -9999px; }
+</style>
+<link rel="stylesheet" href="../theme.css">
+</head>
+<body>
+<script src="../config.js"></script>
+<script src="../env.js"></script>
+<script src="../hub-bar.js"></script>
+<main>
+
+<section id="loginCard" class="card hidden">
+  <h1 id="loginTitle"></h1>
+  <p class="muted" id="loginSub"></p>
+  <label for="pin" id="pinLabel"></label>
+  <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="64">
+  <div id="loginMsg" class="banner err hidden" role="alert"></div>
+  <div class="row">
+    <button id="loginBtn"></button>
+    <button id="checkBtn" class="secondary"></button>
+  </div>
+</section>
+
+<section id="app" class="hidden">
+  <div class="top">
+    <div>
+      <h1 id="appTitle"></h1>
+      <p class="muted" id="who"></p>
+    </div>
+  </div>
+  <p id="how"></p>
+  <div id="msg" class="banner hidden" role="status"></div>
+
+  <div class="card">
+    <div id="stats" class="stats"></div>
+    <div class="bar"><i id="barFill" style="width:0"></i></div>
+    <p class="muted" id="barText"></p>
+    <div class="filters">
+      <div><label for="fStatus" id="fStatusL"></label><select id="fStatus"></select></div>
+      <div><label for="fCat" id="fCatL"></label><select id="fCat"></select></div>
+      <div class="wide"><label for="fSearch" id="fSearchL"></label><input id="fSearch" type="search" autocomplete="off"></div>
+    </div>
+  </div>
+
+  <div id="list"></div>
+
+  <div id="adminCard" class="card hidden">
+    <h2 id="resetTitle"></h2>
+    <p class="muted" id="resetHelp"></p>
+    <div class="row"><input id="resetWord" type="text" style="max-width:12rem" autocomplete="off"><button id="resetBtn" class="danger"></button></div>
+  </div>
+</section>
+
+</main>
+
+<script src="strings.js"></script>
+<script>
+'use strict';
+const SUPABASE_URL = SENV.sb;                 // from config.js
+const SUPABASE_KEY = SENV.key;
+const SESSION_KEY = 'sanctuaire-test2-session-v1';
+const POLL_MS = 8000;
+const VENDOR = '../sanctuaire-test1/vendor/';   // the PDF library and fonts already used by Test 1
+
+/* ---------- texts of this page (not the app texts) ---------- */
+const I18N = {
+  en: {
+    loginTitle: 'Test 2 · French translation review', loginSub: 'Sign in with your PIN (the same as in Test 1).',
+    pin: 'PIN', enter: 'Enter', check: 'Check the connection',
+    wrong: (n) => `Wrong PIN. ${n} more ${n === 1 ? 'try' : 'tries'} before a pause.`,
+    locked: (m) => `Too many wrong tries. Try again in about ${m} minute(s).`,
+    notConfigured: 'This page is not connected to the database yet.', connOk: 'Connected. The Test 2 database is ready.',
+    connNoFn: 'Connected, but the Test 2 database functions were not found. Run 1-setup.sql first.', connFail: 'Could not connect. Check the internet connection.',
+    sessionEnded: 'Your session ended. Please enter your PIN again.',
+    title: 'Test 2 · French translation review', refresh: 'Refresh', logout: 'Log out', updated: 'Updated',
+    roleAdmin: 'English speaker (admin)', roleAdminShort: 'English speaker', rolePartner: 'French speaker', rolePartnerShort: 'French speaker',
+    signedIn: (r) => `Signed in as: ${r}`,
+    howAdmin: 'Every text of the app is listed below with its proposed French. The French speaker approves each one or suggests a change. You then approve her change, or reject it with a note. She can reply, and everything is kept in each text’s history until it is agreed. Everything saves by itself.',
+    howPartner: '',
+    s_pending: 'To review', s_suggested: 'Change suggested', s_rejected: 'Rejected, waiting for a reply', s_countered: 'Reply sent', s_agreed: 'Agreed', s_agreed_orig: 'Agreed (original French)', s_agreed_new: 'Agreed (changed)',
+    st_total: 'Texts', st_agreed: 'Agreed', st_open: 'Not agreed yet', st_mine: 'Waiting for you', st_other: 'Waiting for the other',
+    barText: (a, t) => `${a} of ${t} texts agreed`,
+    fStatus: 'Show', fCat: 'Category', fSearch: 'Search',
+    f_all: 'All texts', f_mine: 'Waiting for me', f_other: 'Waiting for the other person', f_open: 'Not agreed yet', f_agreed: 'Agreed', f_all_cats: 'All categories',
+    searchPh: 'Search English or French…', noResults: 'No text matches these filters.',
+    proposed: 'Proposed French', suggestedBy: 'Her suggestion', final: 'Agreed French', yourFrench: 'French',
+    space: (max, type) => `Space on screen: about ${max} characters (${type}).`,
+    keep: (list) => `Keep these parts exactly as they are: ${list}`,
+    where: 'Where', note: 'Note',
+    reason: 'Reason (optional)', reasonNone: '— none —', noteOpt: 'Note (optional)', noteReq: 'Your note (required)',
+    r_long: 'Too long for the layout', r_unnatural: 'Sounds unnatural', r_meaning: 'Wrong meaning', r_register: 'Too formal or not “tu”', r_grammar: 'Grammar or spelling', r_gender: 'Masculine / feminine form', r_other: 'Other',
+    approve: 'Approve', suggest: 'Suggest a change', accept: 'Keep the original', counter: 'Reply',
+    aApprove: 'Approve her version', aReject: 'Reject with a note', aKeep: 'Keep the original', aReopen: 'Reopen',
+    send: 'Send', cancel: 'Cancel',
+    waitHer: 'Waiting for the French speaker.', waitYou: 'Waiting for the English speaker (admin).',
+    overSpace: 'This is longer than the space on screen.',
+    needText: 'Write the French you suggest.', sameText: 'This is the same as the proposed French. Use “Approve” instead.', needNote: 'A note is required.',
+    phMissing: (p) => `Please keep ${p} exactly as written.`,
+    errs: { wrong_state: 'This text was changed by the other person. The page has been refreshed.', need_note: 'A note is required.', need_text: 'Write the French first.', same_text: 'Same as the proposed French.', too_long: 'The text is too long.', not_allowed: 'This action is not allowed for your role.', bad_id: 'Unknown text.', bad_reason: 'Unknown reason.', bad_confirm: 'Type RESET to confirm.', auth: 'Your session ended.', default: 'Something went wrong. Try again.' },
+    history: (n) => `History (${n})`, noHistory: 'No history yet.',
+    ev: { approve: 'approved the proposed French', suggest: 'suggested a change', counter: 'replied', accept: 'kept the original French', admin_approve: 'approved her version', admin_reject: 'rejected her change', admin_keep: 'kept the original French', admin_reopen: 'reopened this text' },
+    by: { admin: 'English speaker', partner: 'French speaker' },
+    repTitle: 'Report (PDF)', repHelp: 'Creates a PDF with the summary, the texts still open, the final French of every text, and the discussion history. Send it to Claude in the chat when you are done.', repLang: 'Report language', pdf: 'Download the PDF report',
+    pdfBusy: 'Preparing the PDF…', pdfDone: 'PDF created. Check your downloads.', pdfFail: 'Could not create the PDF. The Test 1 PDF files must be in the repository next to this folder.',
+    resetTitle: 'Start again', resetHelp: 'Deletes every review and all history. Type RESET and press the button. This cannot be undone.', reset: 'Delete everything', resetDone: 'Everything was deleted.',
+    sending: 'Saving…', saved: 'Saved.',
+    ph: { name: 'a first name', time: 'a time like 20:42', date: 'a date', n: 'a number', total: 'a number', done: 'a number', lang: 'a language name', LANG: 'a language name in capitals', lang2: 'a language name', from: 'a language name', to: 'a language name', size: 'a file size' },
+    types: { button: 'button', tab: 'menu tab', title: 'title', label: 'small label', text: 'sentence', short: 'short line', placeholder: 'input hint', notification: 'notification', phrase: 'fixed message', word: 'word' }
+  },
+  fr: {
+    loginTitle: 'Test 2 · Relecture des traductions', loginSub: 'Connecte-toi avec ton code PIN (le même que pour le Test 1).',
+    pin: 'Code PIN', enter: 'Entrer', check: 'Vérifier la connexion',
+    wrong: (n) => `Code PIN incorrect. Encore ${n} essai${n === 1 ? '' : 's'} avant une pause.`,
+    locked: (m) => `Trop d’essais incorrects. Réessaie dans environ ${m} minute(s).`,
+    notConfigured: 'Cette page n’est pas encore reliée à la base de données.', connOk: 'Connecté. La base de données du Test 2 est prête.',
+    connNoFn: 'Connecté, mais les fonctions du Test 2 sont introuvables. Il faut d’abord lancer 1-setup.sql.', connFail: 'Connexion impossible. Vérifie ta connexion internet.',
+    sessionEnded: 'Ta session est terminée. Entre à nouveau ton code PIN.',
+    title: 'Test 2 · Relecture des traductions', refresh: 'Actualiser', logout: 'Se déconnecter', updated: 'Mis à jour',
+    roleAdmin: 'anglophone (admin)', roleAdminShort: 'anglophone', rolePartner: 'francophone', rolePartnerShort: 'francophone',
+    signedIn: (r) => `Connectée en tant que : ${r}`,
+    howAdmin: '',
+    howPartner: 'Voici chaque texte de l’application avec le français proposé. Pour chacun, approuve-le ou propose une modification (avec une raison ou une note si tu veux). Ton partenaire accepte ou refuse avec une note ; tu peux lui répondre. Tout est gardé dans l’historique de chaque texte jusqu’à l’accord final. Tout s’enregistre automatiquement.',
+    s_pending: 'À relire', s_suggested: 'Modification proposée', s_rejected: 'Refusée, en attente de réponse', s_countered: 'Réponse envoyée', s_agreed: 'Validé', s_agreed_orig: 'Validé (français d’origine)', s_agreed_new: 'Validé (modifié)',
+    st_total: 'Textes', st_agreed: 'Validés', st_open: 'Pas encore validés', st_mine: 'À toi de jouer', st_other: 'En attente de l’autre',
+    barText: (a, t) => `${a} textes validés sur ${t}`,
+    fStatus: 'Afficher', fCat: 'Catégorie', fSearch: 'Recherche',
+    f_all: 'Tous les textes', f_mine: 'À moi de jouer', f_other: 'En attente de l’autre personne', f_open: 'Pas encore validés', f_agreed: 'Validés', f_all_cats: 'Toutes les catégories',
+    searchPh: 'Chercher en anglais ou en français…', noResults: 'Aucun texte ne correspond à ces filtres.',
+    proposed: 'Français proposé', suggestedBy: 'Ta suggestion', final: 'Français validé', yourFrench: 'Français',
+    space: (max, type) => `Place à l’écran : environ ${max} caractères (${type}).`,
+    keep: (list) => `Garde ces éléments exactement tels quels : ${list}`,
+    where: 'Où', note: 'Remarque',
+    reason: 'Raison (facultatif)', reasonNone: '— aucune —', noteOpt: 'Remarque (facultatif)', noteReq: 'Ta remarque (obligatoire)',
+    r_long: 'Trop long pour l’écran', r_unnatural: 'Ça sonne faux', r_meaning: 'Sens incorrect', r_register: 'Trop formel ou pas en « tu »', r_grammar: 'Grammaire ou orthographe', r_gender: 'Forme masculin / féminin', r_other: 'Autre',
+    approve: 'Approuver', suggest: 'Proposer une modification', accept: 'Garder l’original', counter: 'Répondre',
+    aApprove: 'Approuver sa version', aReject: 'Refuser avec une remarque', aKeep: 'Garder l’original', aReopen: 'Rouvrir',
+    send: 'Envoyer', cancel: 'Annuler',
+    waitHer: 'En attente de la francophone.', waitYou: 'En attente de l’anglophone (admin).',
+    overSpace: 'C’est plus long que la place disponible à l’écran.',
+    needText: 'Écris le français que tu proposes.', sameText: 'C’est identique au français proposé. Utilise plutôt « Approuver ».', needNote: 'Une remarque est obligatoire.',
+    phMissing: (p) => `Garde ${p} exactement tel quel.`,
+    errs: { wrong_state: 'Ce texte a été modifié par l’autre personne. La page a été actualisée.', need_note: 'Une remarque est obligatoire.', need_text: 'Écris d’abord le français.', same_text: 'Identique au français proposé.', too_long: 'Le texte est trop long.', not_allowed: 'Cette action n’est pas autorisée pour ton rôle.', bad_id: 'Texte inconnu.', bad_reason: 'Raison inconnue.', bad_confirm: 'Écris RESET pour confirmer.', auth: 'Ta session est terminée.', default: 'Un problème est survenu. Réessaie.' },
+    history: (n) => `Historique (${n})`, noHistory: 'Pas encore d’historique.',
+    ev: { approve: 'a approuvé le français proposé', suggest: 'a proposé une modification', counter: 'a répondu', accept: 'a gardé le français d’origine', admin_approve: 'a approuvé sa version', admin_reject: 'a refusé sa modification', admin_keep: 'a gardé le français d’origine', admin_reopen: 'a rouvert ce texte' },
+    by: { admin: 'L’anglophone', partner: 'La francophone' },
+    repTitle: 'Rapport (PDF)', repHelp: '', repLang: '', pdf: '',
+    pdfBusy: '', pdfDone: '', pdfFail: '', resetTitle: '', resetHelp: '', reset: '', resetDone: '',
+    sending: 'Enregistrement…', saved: 'Enregistré.',
+    ph: { name: 'un prénom', time: 'une heure comme 20:42', date: 'une date', n: 'un nombre', total: 'un nombre', done: 'un nombre', lang: 'un nom de langue', LANG: 'un nom de langue en majuscules', lang2: 'un nom de langue', from: 'un nom de langue', to: 'un nom de langue', size: 'une taille de fichier' },
+    types: { button: 'bouton', tab: 'onglet du menu', title: 'titre', label: 'petit libellé', text: 'phrase', short: 'ligne courte', placeholder: 'aide de saisie', notification: 'notification', phrase: 'message fixe', word: 'mot' }
+  }
+};
+const FLAGS = {
+  en: { G: 'Feminine form: this refers to her.', M: 'Masculine form: this refers to the English speaker.', Z: 'Proposed wording: this text was not in the design yet.' },
+  fr: { G: 'Forme féminine : cela te désigne.', M: 'Forme masculine : cela désigne ton partenaire.', Z: 'Formulation proposée : ce texte n’était pas encore dans le design.' }
+};
+const DEFAULT_ROLE_LANG = { admin: 'en', partner: 'fr' };
+
+/* ---------- small helpers ---------- */
+const $ = (id) => document.getElementById(id);
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === false || v == null) continue;
+    if (k === 'text') e.textContent = v;
+    else if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v === true) e.setAttribute(k, '');
+    else e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return e;
+}
+let LANG = 'en';
+function t(key, ...a) { const v = I18N[LANG][key]; return typeof v === 'function' ? v(...a) : v; }
+const tx = (grp, key) => (I18N[LANG][grp] || {})[key] || key;
+function fmtTime(x) { try { return new Date(x).toLocaleString(LANG === 'fr' ? 'fr-FR' : 'en-GB', { dateStyle: 'short', timeStyle: 'short' }); } catch (e) { return String(x); } }
+
+/* ---------- talking to the database (same way as Test 1) ---------- */
+async function call(fn, args) {
+  const headers = { 'Content-Type': 'application/json', apikey: SUPABASE_KEY };
+  if (SUPABASE_KEY.startsWith('eyJ')) headers.Authorization = `Bearer ${SUPABASE_KEY}`;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(args) });
+  let body = null; try { body = await res.json(); } catch (e) { /* not json */ }
+  if (!res.ok) { const err = new Error((body && (body.message || body.hint)) || `HTTP ${res.status}`); err.status = res.status; err.body = body; throw err; }
+  return body;
+}
+
+/* ---------- state ---------- */
+let session = null;
+const STR = {}; for (const s of T2.STRINGS) STR[s.id] = s;
+let sheet = { items: {}, events: {}, hash: '' };
+const ui = { forms: {}, openCats: new Set(), fStatus: 'all', fCat: 'all', q: '' };
+let busy = 0, pollTimer = null;
+
+function saveSession(s) { try { localStorage.setItem(SESSION_KEY, JSON.stringify({ token: s.token, role: s.role, label: s.label, at: Date.now() })); } catch (e) { /* private mode */ } }
+function loadSession() { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); if (s && s.token && Date.now() - s.at < 11 * 3600 * 1000) { session = s; return true; } } catch (e) { /* ignore */ } return false; }
+function clearSession() { session = null; try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ } }
+
+/* ---------- login ---------- */
+function showLogin(message) {
+  SBar.toHub(); return;                       // one sign-in only: the hub
+  stopPoll(); $('app').classList.add('hidden'); $('loginCard').classList.remove('hidden');
+  LANG = 'en';
+  $('loginTitle').textContent = `${I18N.en.loginTitle}`;
+  $('loginSub').textContent = `${I18N.en.loginSub}  /  ${I18N.fr.loginSub}`;
+  $('pinLabel').textContent = `${I18N.en.pin} / ${I18N.fr.pin}`;
+  $('loginBtn').textContent = `${I18N.en.enter} / ${I18N.fr.enter}`;
+  $('checkBtn').textContent = `${I18N.en.check} / ${I18N.fr.check}`;
+  const m = $('loginMsg'); if (message) { m.textContent = message; m.classList.remove('hidden'); } else m.classList.add('hidden');
+  $('pin').value = ''; $('pin').focus();
+}
+function loginMessage(text) { const m = $('loginMsg'); m.textContent = text; m.className = 'banner err'; }
+async function doLogin() {
+  const pin = $('pin').value.trim(); if (!pin) return;
+  if (!SUPABASE_URL.startsWith('https://') || SUPABASE_KEY.startsWith('PASTE_')) return loginMessage(`${I18N.en.notConfigured} / ${I18N.fr.notConfigured}`);
+  $('loginBtn').disabled = true;
+  try {
+    const r = await call('t2_login', { p_pin: pin });
+    if (r && r.ok) { session = { token: r.token, role: r.role, label: r.label }; saveSession(session); await enter(); }
+    else if (r && r.error === 'locked') { const mi = Math.ceil((r.retry_after || 60) / 60); loginMessage(`${I18N.en.locked(mi)}  /  ${I18N.fr.locked(mi)}`); }
+    else loginMessage(`${I18N.en.wrong((r && r.remaining) || 0)}  /  ${I18N.fr.wrong((r && r.remaining) || 0)}`);
+  } catch (e) { loginMessage(e.status === 404 ? `${I18N.en.connNoFn} / ${I18N.fr.connNoFn}` : `${I18N.en.connFail} / ${I18N.fr.connFail}`); }
+  finally { $('loginBtn').disabled = false; $('pin').value = ''; }
+}
+async function checkConnection() {
+  try { await call('t2_get_sheet', { p_token: 'connection-check' }); const m = $('loginMsg'); m.className = 'banner ok'; m.textContent = `${I18N.en.connOk}  /  ${I18N.fr.connOk}`; }
+  catch (e) { const m = $('loginMsg'); m.className = 'banner err'; m.textContent = e.status === 404 ? `${I18N.en.connNoFn}  /  ${I18N.fr.connNoFn}` : `${I18N.en.connFail}  /  ${I18N.fr.connFail}`; }
+}
+
+/* ---------- entering the sheet ---------- */
+async function enter() {
+  LANG = SBar.lang();                          // follows the top-bar language (defaults by role at sign-in)
+  document.documentElement.lang = LANG;
+  $('loginCard').classList.add('hidden'); $('app').classList.remove('hidden');
+  buildChrome();
+  await refresh(true);
+  startPoll();
+}
+function buildChrome() {
+  document.title = `Sanctuaire · ${t('title')}`;
+  $('appTitle').textContent = t('title');
+  $('who').textContent = t('signedIn', session.role === 'admin' ? t('roleAdmin') : t('rolePartner'));
+  $('how').textContent = session.role === 'admin' ? t('howAdmin') : t('howPartner');
+  $('fStatusL').textContent = t('fStatus'); $('fCatL').textContent = t('fCat'); $('fSearchL').textContent = t('fSearch');
+  $('fSearch').placeholder = t('searchPh');
+  const fs = $('fStatus'); fs.replaceChildren(...['all', 'mine', 'other', 'open', 'agreed'].map((k) => el('option', { value: k, text: t('f_' + k) })));
+  fs.value = ui.fStatus;
+  const fc = $('fCat'); fc.replaceChildren(el('option', { value: 'all', text: t('f_all_cats') }), ...T2.CATEGORIES.map((c) => el('option', { value: c.id, text: c[LANG] })));
+  fc.value = ui.fCat;
+  const admin = session.role === 'admin';
+  $('adminCard').classList.toggle('hidden', !admin);
+  if (admin) {
+    $('resetTitle').textContent = t('resetTitle'); $('resetHelp').textContent = t('resetHelp'); $('resetBtn').textContent = t('reset'); $('resetWord').placeholder = 'RESET';
+  }
+}
+
+/* ---------- loading data ---------- */
+async function refresh(force, quiet) {
+  if (!session) return;
+  if (!force && isEditing()) return;
+  try {
+    const r = await call('t2_get_sheet', { p_token: session.token });
+    if (!r.ok) { if (r.error === 'auth') { clearSession(); return showLogin(I18N.en.sessionEnded + ' / ' + I18N.fr.sessionEnded); } return; }
+    const hash = JSON.stringify([r.items, r.events]);
+    if (hash === sheet.hash && !force) return;
+    sheet.hash = hash; sheet.items = {}; sheet.events = {};
+    for (const i of r.items) sheet.items[i.sid] = i;
+    for (const e of r.events) (sheet.events[e.sid] = sheet.events[e.sid] || []).push(e);
+    renderAll();
+  } catch (e) { if (!quiet) flash(t('errs').default, 'err'); }
+}
+function isEditing() { const a = document.activeElement; return a && ['TEXTAREA', 'INPUT', 'SELECT'].includes(a.tagName) && $('app').contains(a); }
+function startPoll() { stopPoll(); pollTimer = setInterval(() => { if (!busy && !document.hidden) refresh(false, true); }, POLL_MS); }
+function stopPoll() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+function flash(text, kind) { const m = $('msg'); m.textContent = text; m.className = `banner ${kind || ''}`; if (kind === 'ok') setTimeout(() => { if (m.textContent === text) m.classList.add('hidden'); }, 2500); }
+
+/* ---------- status logic ---------- */
+function statusOf(sid) { const it = sheet.items[sid]; return it ? it.status : 'pending'; }
+const MINE = { partner: ['pending', 'rejected'], admin: ['suggested', 'countered'] };
+function isMine(sid) { return MINE[session.role].includes(statusOf(sid)); }
+function chipLabel(sid) {
+  const it = sheet.items[sid]; const st = statusOf(sid);
+  if (st === 'agreed') return t(it.final_kind === 'original' ? 's_agreed_orig' : 's_agreed_new');
+  return t('s_' + st);
+}
+function matchesFilter(s) {
+  const st = statusOf(s.id);
+  if (ui.fCat !== 'all' && s.cat !== ui.fCat) return false;
+  if (ui.fStatus === 'mine' && !isMine(s.id)) return false;
+  if (ui.fStatus === 'other' && (st === 'agreed' || isMine(s.id))) return false;
+  if (ui.fStatus === 'open' && st === 'agreed') return false;
+  if (ui.fStatus === 'agreed' && st !== 'agreed') return false;
+  if (ui.q) { const q = ui.q.toLowerCase(); if (!(s.en.toLowerCase().includes(q) || s.fr.toLowerCase().includes(q) || s.id.includes(q))) return false; }
+  return true;
+}
+function counts() {
+  const c = { total: T2.STRINGS.length, agreed: 0, mine: 0, other: 0 };
+  for (const s of T2.STRINGS) { const st = statusOf(s.id); if (st === 'agreed') c.agreed++; else if (isMine(s.id)) c.mine++; else c.other++; }
+  return c;
+}
+
+/* ---------- drawing ---------- */
+function renderAll() {
+  const c = counts();
+  $('stats').replaceChildren(
+    el('div', { class: 'stat' }, el('b', { text: c.total }), t('st_total')),
+    el('div', { class: 'stat' }, el('b', { text: c.agreed }), t('st_agreed')),
+    el('div', { class: 'stat' }, el('b', { text: c.mine }), t('st_mine')),
+    el('div', { class: 'stat' }, el('b', { text: c.other }), t('st_other')));
+  $('barFill').style.width = `${Math.round((100 * c.agreed) / c.total)}%`;
+  $('barText').textContent = t('barText', c.agreed, c.total);
+  const list = $('list'); list.replaceChildren();
+  let shown = 0;
+  for (const cat of T2.CATEGORIES) {
+    const all = T2.STRINGS.filter((s) => s.cat === cat.id);
+    const items = all.filter(matchesFilter);
+    if (!items.length) continue;
+    shown += items.length;
+    const done = all.filter((s) => statusOf(s.id) === 'agreed').length;
+    const open = ui.openCats.has(cat.id) || ui.fStatus !== 'all' || !!ui.q || ui.fCat !== 'all';
+    const d = el('details', { class: 'cat', open }, el('summary', {}, el('span', { text: cat[LANG] }), el('small', { text: `${done}/${all.length}` })), el('div', { class: 'cat-body' }, items.map(renderItem)));
+    d.addEventListener('toggle', () => { if (d.open) ui.openCats.add(cat.id); else ui.openCats.delete(cat.id); });
+    list.append(d);
+  }
+  if (!shown) list.append(el('p', { class: 'card muted', text: t('noResults') }));
+}
+
+function phNote(s) {
+  if (!s.ph.length) return null;
+  return el('div', { class: 'hint' }, t('keep', s.ph.map((p) => `{${p}} = ${tx('ph', p)}`).join(' · ')));
+}
+function renderItem(s) {
+  const st = statusOf(s.id), it = sheet.items[s.id], evs = sheet.events[s.id] || [];
+  const note = LANG === 'fr' ? s.note_fr : s.note_en;
+  const box = el('div', { class: 'item', id: 'i-' + s.id });
+  box.append(el('div', { class: 'meta' }, el('code', { text: s.id }), el('span', { text: `${tx('types', s.type)}` }), el('span', { text: '· ' + T2.SCREENS[s.screen][LANG] }), el('span', { class: `chip ${st}`, text: chipLabel(s.id) })));
+  box.append(el('div', { class: 'en', text: s.en }));
+  if (st === 'agreed') box.append(el('div', { class: 'frbox fin' }, el('small', { text: t('final') }), it.final_fr));
+  else box.append(el('div', { class: 'frbox' }, el('small', { text: t('proposed') }), s.fr));
+  if (st !== 'pending' && st !== 'agreed' && it.sug_fr) box.append(el('div', { class: 'frbox sug' }, el('small', { text: t('suggestedBy') + (it.sug_reason ? ` · ${t('r_' + it.sug_reason)}` : '') }), it.sug_fr, it.sug_note ? el('div', { class: 'hint', text: it.sug_note }) : null));
+  if (st === 'agreed' && it.final_kind === 'suggestion') box.append(el('div', { class: 'hint', text: `${t('proposed')}: ${s.fr}` }));
+  box.append(el('div', { class: 'hint', text: t('space', s.max, tx('types', s.type)) }));
+  if (note) box.append(el('div', { class: 'hint', text: `${t('note')}: ${note}` }));
+  for (const ch of (s.flags || '')) { const fn = FLAGS[LANG][ch]; if (fn) box.append(el('div', { class: 'hint', text: fn })); }
+  const pn = phNote(s); if (pn) box.append(pn);
+  box.append(...actionsFor(s, st, it));
+  if (evs.length) box.append(el('details', { class: 'hist' }, el('summary', { text: t('history', evs.length) }), evs.map(renderEvent)));
+  return box;
+}
+function renderEvent(e) {
+  const who = tx('by', e.actor);
+  const lines = [el('div', {}, el('b', { text: `${who} ` }), tx('ev', e.kind))];
+  if (e.fr_text && ['suggest', 'counter'].includes(e.kind)) lines.push(el('div', { text: `→ ${e.fr_text}` }));
+  if (e.reason) lines.push(el('div', { class: 'hint', text: t('r_' + e.reason) }));
+  if (e.note) lines.push(el('div', { text: `“${e.note}”` }));
+  return el('div', { class: `ev ${e.actor}` }, el('time', { text: fmtTime(e.at) }), lines);
+}
+
+function actionsFor(s, st, it) {
+  const out = []; const role = session.role; const f = ui.forms[s.id];
+  const btn = (label, cls, fn) => el('button', { class: cls || '', type: 'button', onclick: fn, text: label });
+  if (f) { out.push(renderForm(s, f)); return out; }
+  const row = (...b) => el('div', { class: 'row' }, b);
+  if (role === 'partner') {
+    if (st === 'pending') out.push(row(btn(t('approve'), 'good', () => act(s.id, 'approve')), btn(t('suggest'), 'secondary', () => openForm(s.id, { mode: 'suggest', fr: s.fr, reason: '', note: '' }))));
+    else if (st === 'rejected') out.push(row(btn(t('counter'), '', () => openForm(s.id, { mode: 'counter', fr: it.sug_fr || s.fr, reason: it.sug_reason || '', note: '' })), btn(t('accept'), 'secondary', () => act(s.id, 'accept'))));
+    else if (st === 'suggested' || st === 'countered') out.push(el('p', { class: 'hint', text: t('waitYou') }), row(btn(t('accept'), 'secondary', () => act(s.id, 'accept'))));
+  } else {
+    if (st === 'pending') out.push(el('p', { class: 'hint', text: t('waitHer') }));
+    else if (st === 'suggested' || st === 'countered') out.push(row(btn(t('aApprove'), 'good', () => act(s.id, 'admin_approve')), btn(t('aReject'), 'danger', () => openForm(s.id, { mode: 'reject', note: '' })), btn(t('aKeep'), 'secondary', () => act(s.id, 'admin_keep'))));
+    else if (st === 'rejected') out.push(el('p', { class: 'hint', text: t('waitHer') }), row(btn(t('aApprove'), 'good', () => act(s.id, 'admin_approve')), btn(t('aKeep'), 'secondary', () => act(s.id, 'admin_keep'))));
+    else if (st === 'agreed') out.push(row(btn(t('aReopen'), 'secondary', () => act(s.id, 'admin_reopen'))));
+  }
+  return out;
+}
+function openForm(sid, f) { ui.forms[sid] = f; renderAll(); const n = document.getElementById('i-' + sid) && document.getElementById('i-' + sid).querySelector('textarea'); if (n) n.focus(); }
+function closeForm(sid) { delete ui.forms[sid]; renderAll(); }
+
+function renderForm(s, f) {
+  const form = el('div', { class: 'form' });
+  const err = el('div', { class: 'banner err hidden', role: 'alert' });
+  let frInput = null, reasonSel = null, noteInput;
+  if (f.mode !== 'reject') {
+    const cnt = el('div', { class: 'count' });
+    const upd = () => { const n = [...f.fr || ''].length; cnt.textContent = `${n}/${s.max}`; cnt.classList.toggle('over', n > s.max); if (n > s.max) cnt.textContent += ` · ${t('overSpace')}`; };
+    frInput = el('textarea', { id: `fr-${s.id}`, 'aria-label': t('yourFrench'), lang: 'fr', oninput: (e) => { f.fr = e.target.value; upd(); } });
+    frInput.value = f.fr || '';
+    form.append(el('label', { for: `fr-${s.id}`, text: t('yourFrench') }), frInput, cnt, ...(phNote(s) ? [phNote(s)] : []));
+    reasonSel = el('select', { id: `rs-${s.id}`, onchange: (e) => { f.reason = e.target.value; } }, el('option', { value: '', text: t('reasonNone') }), ['long', 'unnatural', 'meaning', 'register', 'grammar', 'gender', 'other'].map((k) => el('option', { value: k, text: t('r_' + k) })));
+    reasonSel.value = f.reason || '';
+    form.append(el('label', { for: `rs-${s.id}`, text: t('reason') }), reasonSel);
+    upd();
+  }
+  const noteLabel = f.mode === 'suggest' ? t('noteOpt') : t('noteReq');
+  noteInput = el('textarea', { id: `nt-${s.id}`, class: 'short', oninput: (e) => { f.note = e.target.value; } });
+  noteInput.value = f.note || '';
+  form.append(el('label', { for: `nt-${s.id}`, text: f.mode === 'counter' ? t('noteReq') : noteLabel }), noteInput, err);
+  const fail = (m) => { err.textContent = m; err.classList.remove('hidden'); };
+  const send = el('button', { type: 'button', text: t('send'), onclick: async () => {
+    const fr = (f.fr || '').trim(), note = (f.note || '').trim();
+    if (f.mode === 'suggest' || f.mode === 'counter') {
+      if (!fr) return fail(t('needText'));
+      if (f.mode === 'suggest' && fr === s.fr) return fail(t('sameText'));
+      const miss = s.ph.filter((p) => !fr.includes(`{${p}}`));
+      if (miss.length) return fail(t('phMissing', miss.map((p) => `{${p}}`).join(', ')));
+    }
+    if ((f.mode === 'counter' || f.mode === 'reject') && !note) return fail(t('needNote'));
+    const action = { suggest: 'suggest', counter: 'counter', reject: 'admin_reject' }[f.mode];
+    await act(s.id, action, { fr: f.mode === 'reject' ? null : fr, reason: f.reason || null, note: note || null });
+  } });
+  form.append(el('div', { class: 'row' }, send, el('button', { type: 'button', class: 'secondary', text: t('cancel'), onclick: () => closeForm(s.id) })));
+  return form;
+}
+
+/* ---------- actions ---------- */
+async function act(sid, action, extra) {
+  extra = extra || {}; busy++;
+  flash(t('sending'));
+  try {
+    const r = await call('t2_act', { p_token: session.token, p_sid: sid, p_action: action, p_orig: STR[sid].fr, p_fr: extra.fr || null, p_reason: extra.reason || null, p_note: extra.note || null });
+    if (r.ok) { delete ui.forms[sid]; flash(t('saved'), 'ok'); }
+    else if (r.error === 'auth') { clearSession(); return showLogin(I18N.en.sessionEnded + ' / ' + I18N.fr.sessionEnded); }
+    else { flash(t('errs')[r.error] || t('errs').default, 'err'); if (r.error === 'wrong_state') delete ui.forms[sid]; }
+  } catch (e) { flash(t('errs').default, 'err'); }
+  finally { busy--; }
+  await refresh(true, true);
+}
+
+/* ---------- PDF report (admin) ---------- */
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('load ' + src)); document.head.append(s); }); }
+async function fetchB64(url) { const r = await fetch(url); if (!r.ok) throw new Error('font'); const b = new Uint8Array(await r.arrayBuffer()); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); }
+async function doReset() {
+  const r = await call('t2_reset_all', { p_token: session.token, p_confirm: $('resetWord').value.trim() });
+  if (r.ok) { $('resetWord').value = ''; ui.forms = {}; flash(t('resetDone'), 'ok'); await refresh(true, true); }
+  else flash(t('errs')[r.error] || t('errs').default, 'err');
+}
+
+/* ---------- start ---------- */
+$('loginBtn').addEventListener('click', doLogin);
+$('pin').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+$('checkBtn').addEventListener('click', checkConnection);
+$('fStatus').addEventListener('change', (e) => { ui.fStatus = e.target.value; renderAll(); });
+$('fCat').addEventListener('change', (e) => { ui.fCat = e.target.value; renderAll(); });
+$('fSearch').addEventListener('input', (e) => { ui.q = e.target.value.trim(); renderAll(); });
+$('resetBtn').addEventListener('click', doReset);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && session) refresh(false, true); });
+if (loadSession()) enter().catch(() => showLogin()); else showLogin();
+window.addEventListener('sanctuaire-lang', (e) => { LANG = e.detail; document.documentElement.lang = LANG; buildChrome(); refresh(true, true); });
+</script>
+</body>
+</html>
