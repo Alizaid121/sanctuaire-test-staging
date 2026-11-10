@@ -969,48 +969,12 @@ function deleteButton(item) {
 }
 
 // ---------- admin ----------
-function exportText() {
-  const L = [];
-  const roleName = (r) => (r === 'admin' ? 'English speaker (admin)' : 'French speaker');
-  L.push('Sanctuaire Test 1 shared sheet export', `Exported: ${new Date().toISOString()}`, '');
-  for (const cat of sheet.categories) {
-    L.push(`=== ${cat.id}. ${cat.name_en} ===`);
-    for (const author of ['admin', 'partner']) {
-      for (let n = 1; n <= 3; n++) {
-        const i = itemOf(cat.id, author, n);
-        if (!i) continue;
-        L.push(`[${roleName(author)} #${n}] status: ${i.status}; version ${i.attempt}; direction ${author === 'admin' ? 'EN->FR' : 'FR->EN'}`);
-        L.push(`  source: ${i.source_text}`);
-        if (i.author_note) L.push(`  author note: ${i.author_note}`);
-        if (i.translation) L.push(`  translation: ${i.translation} (${i.ms_out ?? '?'} ms)`, `  back-translation: ${i.back_translation} (${i.ms_back ?? '?'} ms)`);
-        if (i.translation_rating) L.push(`  translation rating (by the other person): ${i.translation_rating}${i.translation_remark ? ' | ' + i.translation_remark : ''}`);
-        if (i.back_rating) L.push(`  back-translation check (by the author): ${i.back_rating}${i.back_remark ? ' | ' + i.back_remark : ''}`);
-        if (i.engine) L.push(`  engine: ${i.engine}`);
-        if (i.device) L.push(`  device: ${i.device}`);
-      }
-    }
-    L.push('');
-  }
-  return L.join('\n');
-}
-
 function renderAdmin() {
   const a = $('admin');
   if (session.role !== 'admin') { a.classList.add('hidden'); return; }
   a.classList.remove('hidden');
   a.textContent = '';
   const box = msgBox();
-  const copy = el('button', { type: 'button', class: 'secondary', text: t('exportCopy') });
-  copy.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(exportText()); setMsg(box, t('copied'), 'ok'); } catch { setMsg(box, t('copyFail'), 'err'); }
-  });
-  const file = el('button', { type: 'button', class: 'secondary', text: t('exportFile') });
-  file.addEventListener('click', () => {
-    const blob = new Blob([exportText()], { type: 'text/plain' });
-    const link = el('a', { href: URL.createObjectURL(blob), download: 'sanctuaire-test1-sheet.txt' });
-    document.body.append(link); link.click(); link.remove();
-    setTimeout(() => URL.revokeObjectURL(link.href), 2000);
-  });
   const reset = el('button', { type: 'button', class: 'danger', text: t('reset') });
   reset.addEventListener('click', async () => {
     if (!confirm(t('confirmReset'))) return;
@@ -1019,7 +983,7 @@ function renderAdmin() {
       if (handleResult(r, box)) await refresh(true);
     } catch { setMsg(box, t('netError'), 'err'); }
   });
-  a.append(el('h2', { text: t('adminTitle') }), el('div', { class: 'row' }, copy, file), el('div', { class: 'row' }, reset), box);
+  a.append(el('h2', { text: t('adminTitle') }), el('div', { class: 'row' }, reset), box);
 }
 
 // ---------- PDF report ----------
