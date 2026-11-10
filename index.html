@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#26362D">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Sanctuaire Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Inter:wght@400;600&display=swap">
+<style>
+:root{--bg:#F6F0E6;--paper:#FFFBF3;--cedar:#26362D;--ink:#1F2A24;--brass:#8A5B1E;--ember:#A63D2F;--line:#DDD2BF;--muted:#5E5A50;--green:#2F6B52}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 Inter,system-ui,sans-serif}
+h1,h2,h3,.brand{font-family:Fraunces,Georgia,serif;line-height:1.2;margin:0 0 .4em}
+h1{font-size:2rem}h2{font-size:1.35rem;margin-top:1.6em}h3{font-size:1.15rem}
+.hidden{display:none!important}
+button,.btn{font:inherit;font-weight:600;min-height:48px;padding:0 20px;border-radius:12px;border:1px solid var(--cedar);background:var(--cedar);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.btn.alt,button.alt{background:transparent;color:var(--cedar)}
+button:disabled{opacity:.6}
+a{color:var(--cedar)}
+#login{min-height:100vh;display:grid;place-items:center;padding:20px;background:linear-gradient(#0a0d2488,#0a0d2488),url(assets/splash.jpg) center/cover #1E1F5B}
+.lcard{background:var(--paper);border-radius:20px;padding:28px 24px;max-width:460px;width:100%;box-shadow:0 12px 40px #0006}
+.lcard .brand{font-size:1.9rem;margin:0}.lcard p{margin:.5em 0}
+.sub{color:var(--muted);font-size:.95rem}
+input{font:inherit;width:100%;min-height:52px;border:1px solid var(--line);border-radius:12px;padding:0 14px;margin:8px 0 14px;background:#fff;letter-spacing:.3em}
+#msg{min-height:1.6em;color:var(--ember);font-size:.95rem}
+#install{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;background:linear-gradient(#0a0d2433,#0a0d2433),url(assets/splash.jpg) center/cover #1E1F5B;color:#fff}
+#install .skip{align-self:flex-start;margin:calc(10px + env(safe-area-inset-top,0px)) 0 0 10px;min-height:48px;padding:0 14px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.35);color:#e8e6f0;font-weight:400}
+#install .panel{margin-top:auto;background:var(--paper);color:var(--ink);border-radius:22px 22px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom,0px))}
+#install .panel p{margin:.4em 0}.fr{color:var(--muted);font-size:.95rem}
+#install #ib{width:100%;margin-top:12px}
+#inote{min-height:1.4em;font-size:.92rem;color:var(--muted)}
+.lcard img{width:72px;height:72px;border-radius:16px;display:block;margin-bottom:10px}
+.prog{margin-top:10px}.track{height:10px;background:#E7DCC6;border-radius:99px;overflow:hidden}.track i{display:block;height:100%;background:var(--green);transition:width .5s}
+.pl{margin:.5em 0 .1em}.card{position:relative}.card.done{border-color:var(--green)}
+.tick{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:600}
+.overall{background:#dcebe2;color:var(--green);font-weight:600;border-radius:12px;padding:10px 14px;margin:14px 0}
+.rrow{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+.rrow .rb{display:flex;flex-wrap:wrap;gap:8px}.rrow button{min-height:44px;padding:0 14px}
+#rmsg{min-height:1.5em;margin:10px 0;font-weight:600}
+#app{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+main{max-width:860px;margin:0 auto;padding:22px 16px 60px}
+.eyebrow{color:var(--brass);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:.8rem;margin:0}
+.lead{font-size:1.1rem}
+.steps3,.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.box,.card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.box b{font-family:Fraunces,Georgia,serif;color:var(--brass);font-size:1.4rem}
+.card h3{margin-top:.4em}.card p{margin:.3em 0}
+.card .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.card.soon{opacity:.75;border-style:dashed}
+.who2{color:var(--muted);font-size:.9rem}
+.tag{display:inline-block;font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:99px;background:#ece3d2;color:var(--muted)}
+.tag.live{background:#dcebe2;color:var(--green)}
+.note{color:var(--muted);font-size:.92rem;margin-top:26px}
+.back{display:inline-block;margin-bottom:10px}
+ol,ul{padding-left:1.3em}li{margin:.4em 0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:12px 0}.kv dt{color:var(--muted)}.kv dd{margin:0}
+.ok{color:var(--green)}.no{color:var(--ember)}
+.avatar{width:64px;height:64px;border-radius:50%;background:var(--cedar);color:#fff;display:grid;place-items:center;font:600 1.8rem Fraunces,Georgia,serif}
+</style>
+</head>
+<body>
+
+<section id="install" class="hidden">
+  <button id="iskip" type="button" class="skip">Skip · Passer</button>
+  <div class="panel">
+    <h2 style="margin-top:0">Install Sanctuaire Test</h2>
+    <p>Install it on your phone to open it like an app. Afterwards, open it from your home screen and continue there.</p>
+    <p class="fr">Installe-la sur ton téléphone pour l’ouvrir comme une app. Ensuite, ouvre-la depuis ton écran d’accueil et continue là.</p>
+    <button id="ib" type="button">Install · Installer</button>
+    <div id="inote" role="status"></div>
+  </div>
+</section>
+
+<section id="login" class="hidden">
+  <div class="lcard">
+    <img src="icons/icon-192.png" alt="">
+    <p class="brand">Sanctuaire Test</p>
+    <p class="sub">Test site · Site de test</p>
+    <p>Welcome. This is the private test site for Sanctuaire. Enter your PIN to continue.</p>
+    <p>Bienvenue. Voici le site de test privé de Sanctuaire. Saisis ton code PIN pour continuer.</p>
+    <label for="pin" class="sub">PIN / Code PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password">
+    <button id="go" type="button" style="width:100%">Enter / Entrer</button>
+    <div id="msg" role="alert"></div>
+  </div>
+</section>
+
+<div id="app" class="hidden">
+  <main id="view"></main>
+</div>
+
+<script src="config.js"></script>
+<script src="env.js"></script>
+<script>window.SBAR_HUB = 1;</script>
+<script src="hub-bar.js"></script>
+<script>
+'use strict';
+const SB = SENV.sb, KEY = SENV.key;   // from config.js
+const VERSION = '2.1.0';
+if (SENV.staging) {
+  document.title = 'Sanctuaire Test · STAGING';
+  document.querySelector('.lcard .brand').textContent = 'Sanctuaire Test · STAGING';
+  document.querySelector('#install h2').textContent = 'Install Sanctuaire Test (staging)';
+}
+const HUB = 'sanctuaire-hub-v1', K1 = 'sanctuaire-t1-session-v1', K2 = 'sanctuaire-test2-session-v1', SEENK = 'sanctuaire-hub-seen-v1';
+const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const get = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+const put = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } };
+
+// ---- the tests (edit this list to add or change a card) ----
+const TESTS = [
+  { id: '1', url: 'sanctuaire-test1/sheet.html' },
+  { id: '2', url: 'sanctuaire-test2/' },
+  { id: 'cap', url: 'capability-test/capability.html' },
+  { id: 'upd', soon: true },
+  { id: 'more', soon: true }
+];
+
+const I18N = {
+  en: {
+    home: 'Home', guides: 'Guides', profile: 'Profile', signout: 'Sign out', switchTo: 'FR',
+    eyebrow: 'Private test site', welcomeTitle: 'Welcome to the Sanctuaire test site',
+    welcome: 'Sanctuaire is a private app for two people who speak different languages: each writes in their own language and reads in their own. Before it is built, the risky parts are tested here, with real phones and real sentences. Each test below helps decide what the real app will do.',
+    how: 'How this site works',
+    s1: 'Sign in once', s1d: 'One PIN opens every test. No second login.',
+    s2: 'Pick a test', s2d: 'The first time, its guide opens before the test.',
+    s3: 'Guide any time', s3d: 'The Guides tab at the bottom reopens it.',
+    tests: 'The tests', open: 'Open', soon: 'Coming soon',
+    start: 'Start with the guide', openTest: 'Open the test', guide: 'Guide',
+    privacy: 'Only the two testers can sign in. The tests hold readable sentences, so keep exported reports private. The test database is deleted when testing ends.',
+    steps: 'Steps', good: 'Good to know', adminOnly: 'For the admin', partnerOnly: 'For the French speaker',
+    testsTitle: 'Tests', testsIntro: 'Every test of the project. Open one to start or continue.', version: 'Version',
+    loading: 'Loading progress…', notConn: 'Not connected: sign in again to see progress.', progErr: 'Progress is not available right now.',
+    completed: 'Completed',
+    overall: (c, n) => `${c} of ${n} tests completed`,
+    counts: { '1': (d, t) => `${d} of ${t} sentences done`, '2': (d, t) => `${d} of ${t} texts agreed`, cap: (d, t) => `${d} of ${t} checks done by both of you` },
+    roleShort: { admin: 'English speaker', partner: 'French speaker' },
+    guidesTitle: 'Guides', guidesIntro: 'Each test has a short guide. Open one at any time.',
+    profileTitle: 'Your profile', name: 'Name', role: 'Role', roleAdmin: 'Admin (English speaker)', rolePartner: 'Partner (French speaker)',
+    language: 'Language', sessions: 'Test sign-ins', on: 'Connected', off: 'Not connected: that test will ask for your PIN',
+    adminNote: 'As admin, you download the PDF reports below.',
+    reportsTitle: 'Reports (PDF)', reportsIntro: 'Download the results of each test, in English or French. After a core update, the old version’s report stays here next to the new one.',
+    current: 'Current', ver: (n) => `Version ${n}`, saved: 'saved', loadingR: 'Loading reports…', rFail: 'Reports are not available. Run database/4-reports-setup.sql in Supabase, then reload.',
+    rBusy: 'Creating the PDF…', rDone: (n) => `Downloaded ${n}`, rErr: 'The PDF could not be created. Try again.', noArch: 'No earlier versions yet.',
+    pEn: 'English speaker', pFr: 'French speaker', pdfEn: 'PDF · English', pdfFr: 'PDF · Français',
+    expiry: 'The sign-in lasts about 11 hours on this phone.',
+    wrong: (n) => `Wrong PIN. ${n} ${n === 1 ? 'try' : 'tries'} left.`,
+    locked: (m) => `Too many wrong tries. Try again in ${m} min.`,
+    net: 'Could not reach the server. Check the internet and try again.', enter: 'Enter PIN',
+    cards: {
+      '1': { t: 'Test 1 · Translation quality', d: 'Write real sentences, translate them on the phone, translate them back and rate the result. Shows whether on-device translation is good enough.', w: 'For both of you' },
+      '2': { t: 'Test 2 · French review of the app texts', d: 'Go through every text of the app in French: approve it or suggest a change. The admin approves or discusses each change.', w: 'For both of you' },
+      cap: { t: 'Phone check', d: 'Checks graphics support, memory and speed on your phone, to know whether a larger translation model can run. Downloads nothing.', w: 'On each phone' },
+      upd: { t: 'Test 1 update · Second translator', d: 'A small language model added as a second translator, to compare with the first.' },
+      more: { t: 'Other tests', d: 'Notifications, saving photos, live video transfer, GIF provider, hosting and encryption library.' }
+    }
+  },
+  fr: {
+    home: 'Accueil', guides: 'Guides', profile: 'Profil', signout: 'Se déconnecter', switchTo: 'EN',
+    eyebrow: 'Site de test privé', welcomeTitle: 'Bienvenue sur le site de test de Sanctuaire',
+    welcome: 'Sanctuaire est une app privée pour deux personnes qui ne parlent pas la même langue : chacun écrit dans sa langue et lit dans la sienne. Avant de la construire, les points risqués sont testés ici, avec de vrais téléphones et de vraies phrases. Chaque test ci-dessous aide à décider ce que fera la vraie app.',
+    how: 'Comment fonctionne ce site',
+    s1: 'Connecte-toi une fois', s1d: 'Un seul code PIN ouvre tous les tests. Pas de seconde connexion.',
+    s2: 'Choisis un test', s2d: 'La première fois, son guide s’ouvre avant le test.',
+    s3: 'Le guide, à tout moment', s3d: 'L’onglet Guides, en bas, le rouvre.',
+    tests: 'Les tests', open: 'Ouvert', soon: 'Bientôt',
+    start: 'Commencer par le guide', openTest: 'Ouvrir le test', guide: 'Guide',
+    privacy: 'Seules les deux personnes qui testent peuvent se connecter. Les tests contiennent des phrases lisibles : garde les rapports exportés privés. La base de test est supprimée à la fin des tests.',
+    steps: 'Étapes', good: 'Bon à savoir', adminOnly: 'Pour l’admin', partnerOnly: 'Pour la francophone',
+    testsTitle: 'Tests', testsIntro: 'Tous les tests du projet. Ouvre-en un pour commencer ou continuer.', version: 'Version',
+    loading: 'Chargement de la progression…', notConn: 'Non connecté : reconnecte-toi pour voir la progression.', progErr: 'La progression n’est pas disponible pour le moment.',
+    completed: 'Terminé',
+    overall: (c, n) => `${c} test${c > 1 ? 's' : ''} terminé${c > 1 ? 's' : ''} sur ${n}`,
+    counts: { '1': (d, t) => `${d} phrases sur ${t} terminées`, '2': (d, t) => `${d} textes sur ${t} validés`, cap: (d, t) => `${d} tests sur ${t} faits à vous deux` },
+    roleShort: { admin: 'anglophone', partner: 'francophone' },
+    guidesTitle: 'Guides', guidesIntro: 'Chaque test a un court guide. Ouvre-le quand tu veux.',
+    profileTitle: 'Ton profil', name: 'Nom', role: 'Rôle', roleAdmin: 'Admin (anglophone)', rolePartner: 'Partenaire (francophone)',
+    language: 'Langue', sessions: 'Connexions aux tests', on: 'Connecté', off: 'Non connecté : ce test te demandera ton code PIN',
+    adminNote: 'En tant qu’admin, tu télécharges les rapports PDF ci-dessous.',
+    reportsTitle: 'Rapports (PDF)', reportsIntro: 'Télécharge les résultats de chaque test, en anglais ou en français. Après une mise à jour majeure, le rapport de l’ancienne version reste ici à côté du nouveau.',
+    current: 'Actuelle', ver: (n) => `Version ${n}`, saved: 'enregistrée', loadingR: 'Chargement des rapports…', rFail: 'Les rapports ne sont pas disponibles. Lance database/4-reports-setup.sql dans Supabase, puis recharge.',
+    rBusy: 'Création du PDF…', rDone: (n) => `Téléchargé : ${n}`, rErr: 'Le PDF n’a pas pu être créé. Réessaie.', noArch: 'Pas encore d’anciennes versions.',
+    pEn: 'Anglophone', pFr: 'Francophone', pdfEn: 'PDF · English', pdfFr: 'PDF · Français',
+    expiry: 'La connexion dure environ 11 heures sur ce téléphone.',
+    wrong: (n) => `Code incorrect. Il reste ${n} essai${n > 1 ? 's' : ''}.`,
+    locked: (m) => `Trop d’essais incorrects. Réessaie dans ${m} min.`,
+    net: 'Impossible de joindre le serveur. Vérifie internet et réessaie.', enter: 'Saisir le code PIN',
+    cards: {
+      '1': { t: 'Test 1 · Qualité de la traduction', d: 'Écris de vraies phrases, traduis-les sur le téléphone, retraduis-les et note le résultat. Cela montre si la traduction sur le téléphone est assez bonne.', w: 'Pour vous deux' },
+      '2': { t: 'Test 2 · Relecture du français de l’app', d: 'Passe en revue chaque texte de l’app en français : approuve-le ou propose un changement. L’admin valide ou discute chaque changement.', w: 'Pour vous deux' },
+      cap: { t: 'Vérification du téléphone', d: 'Vérifie le graphisme, la mémoire et la vitesse de ton téléphone, pour savoir si un modèle de traduction plus grand peut tourner. Ne télécharge rien.', w: 'Sur chaque téléphone' },
+      upd: { t: 'Mise à jour du Test 1 · Deuxième traducteur', d: 'Un petit modèle de langage ajouté comme second traducteur, à comparer avec le premier.' },
+      more: { t: 'Autres tests', d: 'Notifications, enregistrement des photos, transfert vidéo en direct, fournisseur de GIF, hébergement et bibliothèque de chiffrement.' }
+    }
+  }
+};
+
+// ---- guides (edit the text here; a = admin only, p = French speaker only) ----
+const GUIDES = {
+  '1': {
+    en: { title: 'Test 1 · Translation quality',
+      purpose: 'Find out whether translation done on the phone is good enough for Sanctuaire. Each of you writes sentences in your own language, the phone translates them, and the result is rated.',
+      steps: ['Open the test sheet. Sentences are grouped into 9 types, with 3 slots per person.',
+        'The first time, prepare the translator. It downloads once (about 60 MB, a few minutes) and then stays on the phone. Use Wi-Fi.',
+        'Write a sentence in your own language in a free slot and run the translation.',
+        'Look at the check-meaning result (the translation turned back into the first language). It helps, but it cannot catch idioms.',
+        'Rate each result Good, Awkward or Wrong, and add a remark when something sounds off.'],
+      a: ['When the rating is finished, export the PDF report from the sheet.', 'Delete or reset entries only when you mean it.'],
+      p: ['You rate the English to French translations. Say if the French sounds natural, not only if it is correct.'],
+      tips: ['Honest ratings matter more than kind ones.', 'Everything is saved on the server, so you can stop and continue later.', 'The sheet holds personal sentences. Keep the PDF private.'] },
+    fr: { title: 'Test 1 · Qualité de la traduction',
+      purpose: 'Savoir si une traduction faite sur le téléphone est assez bonne pour Sanctuaire. Chacun écrit des phrases dans sa langue, le téléphone les traduit, puis le résultat est noté.',
+      steps: ['Ouvre la feuille de test. Les phrases sont rangées en 9 types, avec 3 places par personne.',
+        'La première fois, prépare le traducteur. Il se télécharge une seule fois (environ 60 Mo, quelques minutes) puis reste sur le téléphone. Utilise le Wi-Fi.',
+        'Écris une phrase dans ta langue dans une place libre et lance la traduction.',
+        'Regarde le contrôle du sens (la traduction retraduite dans la langue d’origine). C’est utile, mais cela ne détecte pas les expressions imagées.',
+        'Note chaque résultat : Bonne, Maladroite ou Fausse, et ajoute une remarque si quelque chose sonne mal.'],
+      a: ['Quand les notes sont terminées, exporte le rapport PDF depuis la feuille.', 'Ne supprime ou ne réinitialise que si tu le veux vraiment.'],
+      p: ['Tu notes les traductions de l’anglais vers le français. Dis si le français sonne naturel, pas seulement s’il est correct.'],
+      tips: ['Des notes honnêtes comptent plus que des notes gentilles.', 'Tout est enregistré sur le serveur : tu peux t’arrêter et reprendre plus tard.', 'La feuille contient des phrases personnelles. Garde le PDF privé.'] }
+  },
+  '2': {
+    en: { title: 'Test 2 · French review of the app texts',
+      purpose: 'The French speaker checks the French of every text in the app before the screens are drawn in French. Only app texts are included, not chat messages.',
+      steps: ['Open the review. Texts are grouped by category. Each shows the English, the proposed French and the space it must fit in.',
+        'Use the filters to see what is waiting for you, what is still open and what is agreed, or search for a word.',
+        'The French speaker approves a text or suggests a change, with an optional reason. Placeholders in curly brackets, like {name}, must stay in the text.',
+        'The admin approves her version, rejects it with a note, or keeps the original. A rejected text can be answered and discussed until it is settled.',
+        'Every step is kept in the history of that text.'],
+      a: ['Rejecting always needs a note. “Keep the original” ends a stalemate.', 'When both of you are done, export the PDF report and bring it to the next chat.'],
+      p: ['The French uses “tu”. Texts about you use the feminine (connectée, prête); texts about your partner use the masculine.', 'The counter shows how many characters fit on screen. Stay within it.'],
+      tips: ['Everything is saved on the server, so you can stop and continue later.', 'The page refreshes by itself every few seconds.'] },
+    fr: { title: 'Test 2 · Relecture du français de l’app',
+      purpose: 'La francophone vérifie le français de chaque texte de l’app avant que les écrans soient dessinés en français. Seuls les textes de l’app sont concernés, pas les messages du chat.',
+      steps: ['Ouvre la relecture. Les textes sont rangés par catégorie. Chacun montre l’anglais, le français proposé et la place disponible.',
+        'Utilise les filtres pour voir ce qui t’attend, ce qui reste ouvert et ce qui est validé, ou cherche un mot.',
+        'Approuve un texte ou propose un changement, avec une raison facultative. Les éléments entre accolades, comme {name}, doivent rester dans le texte.',
+        'L’admin approuve ta version, la refuse avec une note, ou garde l’original. Un texte refusé peut recevoir une réponse et être discuté jusqu’à l’accord.',
+        'Chaque étape est gardée dans l’historique du texte.'],
+      a: ['Un refus demande toujours une note. « Garder l’original » met fin à une impasse.', 'Quand vous avez fini tous les deux, exporte le rapport PDF et apporte-le dans la prochaine discussion.'],
+      p: ['Le français utilise le « tu ». Les textes qui parlent de toi sont au féminin (connectée, prête) ; ceux qui parlent de ton partenaire sont au masculin.', 'Le compteur indique combien de caractères tiennent à l’écran. Reste dans cette limite.'],
+      tips: ['Tout est enregistré sur le serveur : tu peux t’arrêter et reprendre plus tard.', 'La page se rafraîchit toute seule toutes les quelques secondes.'] }
+  },
+  cap: {
+    en: { title: 'Phone check',
+      purpose: 'Finds out whether your phone can run a larger translation model: graphics support (WebGPU), memory and speed. It downloads nothing and sends nothing.',
+      steps: ['Open this page on your own phone, in Chrome.', 'Run the check and wait until it finishes.', 'Copy the result and send it in the chat.'],
+      tips: ['Do it once on each phone.', 'It is safe to run: no download, no network.'] },
+    fr: { title: 'Vérification du téléphone',
+      purpose: 'Permet de savoir si ton téléphone peut faire tourner un modèle de traduction plus grand : graphisme (WebGPU), mémoire et vitesse. Rien n’est téléchargé ni envoyé.',
+      steps: ['Ouvre cette page sur ton propre téléphone, dans Chrome.', 'Lance la vérification et attends la fin.', 'Copie le résultat et envoie-le dans la discussion.'],
+      tips: ['À faire une fois sur chaque téléphone.', 'Sans risque : pas de téléchargement, pas de réseau.'] }
+  }
+};
+
+// ---- server ----
+async function rpc(fn, args) {
+  const res = await fetch(`${SB}/rest/v1/rpc/${fn}`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: KEY }, body: JSON.stringify(args) });
+  let body = null; try { body = await res.json(); } catch (e) { /* not json */ }
+  if (!res.ok) { const err = new Error('HTTP ' + res.status); err.status = res.status; throw err; }
+  return body;
+}
+
+// ---- state ----
+let sess = null, lang = 'en', bar = null;
+const L = () => I18N[lang];
+const live = (s) => s && s.at && Date.now() - s.at < 11 * 3600 * 1000;
+const seen = () => get(SEENK) || {};
+
+// ---- login ----
+// ---- install (PWA) ----
+const SKIP = 'sanctuaire-skip-install';
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let dip = null, installed = false, iTimer = null;
+const IMSG = {
+  fallback: 'The browser did not offer an install button. In Chrome, open the menu ⋮ and choose “Install app” or “Add to Home screen”. If it is already installed, open it from your home screen.\nLe navigateur ne propose pas de bouton. Dans Chrome, ouvre le menu ⋮ et choisis « Installer l’application » ou « Ajouter à l’écran d’accueil ». Si elle est déjà installée, ouvre-la depuis ton écran d’accueil.',
+  busy: 'Installing… · Installation…',
+  done: 'Installed. Open Sanctuaire Test from your home screen.\nInstallée. Ouvre Sanctuaire Test depuis ton écran d’accueil.'
+};
+const inote = (t) => { const n = $('inote'); n.style.whiteSpace = 'pre-line'; n.textContent = t; };
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); dip = e; if (!installed) inote(''); });
+window.addEventListener('appinstalled', () => { installed = true; dip = null; $('ib').classList.add('hidden'); inote(IMSG.done); $('iskip').textContent = 'Continue here · Continuer ici'; });
+function showInstall() {
+  $('install').classList.remove('hidden');
+  iTimer = setTimeout(() => { if (!dip && !installed) inote(IMSG.fallback); }, 3000);
+}
+function leaveInstall() { clearTimeout(iTimer); $('install').classList.add('hidden'); try { sessionStorage.setItem(SKIP, '1'); } catch (e) { /* ignore */ } boot(); }
+$('iskip').onclick = leaveInstall;
+$('ib').onclick = async () => {
+  if (!dip) { inote(IMSG.fallback); return; }
+  const p = dip; dip = null; p.prompt();
+  const c = await p.userChoice;
+  if (c.outcome === 'accepted' && !installed) inote(IMSG.busy);
+};
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+function showLogin(m) { sess = null; if (bar) { bar.destroy(); bar = null; } $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('msg').textContent = m || ''; $('pin').value = ''; }
+async function doLogin() {
+  const pin = $('pin').value.trim(), m = $('msg'); if (!pin) return;
+  $('go').disabled = true; m.textContent = '…';
+  try {
+    const a = await rpc('t1_login', { p_pin: pin });          // Test 1 first: a wrong PIN is counted once, not twice
+    if (!a || !a.ok) {
+      const mi = Math.ceil(((a && a.retry_after) || 60) / 60), n = (a && a.remaining) || 0;
+      m.textContent = a && a.error === 'locked' ? `${I18N.en.locked(mi)} / ${I18N.fr.locked(mi)}` : `${I18N.en.wrong(n)} / ${I18N.fr.wrong(n)}`;
+      return;
+    }
+    const now = Date.now();
+    put(K1, { token: a.token, role: a.role, label: a.label, at: now });
+    const s = { role: a.role, label: a.label, at: now, lang: a.role === 'admin' ? 'en' : 'fr', tok1: a.token, tok2: null };
+    try { const b = await rpc('t2_login', { p_pin: pin }); if (b && b.ok) { put(K2, { token: b.token, role: b.role, label: b.label, at: now }); s.tok2 = b.token; } } catch (e) { /* Test 2 will ask itself */ }
+    put(HUB, s); sess = s; lang = s.lang;
+    location.hash = '#/home'; start();
+  } catch (e) { m.textContent = `${I18N.en.net} / ${I18N.fr.net}`; }
+  finally { $('go').disabled = false; $('pin').value = ''; }
+}
+async function signOut() {
+  const s = sess || get(HUB);
+  try { if (s && s.tok1) await rpc('t1_logout', { p_token: s.tok1 }); } catch (e) { /* ignore */ }
+  try { if (s && s.tok2) await rpc('t2_logout', { p_token: s.tok2 }); } catch (e) { /* ignore */ }
+  [HUB, K1, K2].forEach((k) => { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } });
+  location.hash = '#/login'; showLogin();
+}
+
+// ---- views ----
+function card(t) {
+  const c = L().cards[t.id];
+  if (t.soon) return `<article class="card soon"><span class="tag">${L().soon}</span><h3>${c.t}</h3><p>${c.d}</p></article>`;
+  return `<article class="card"><span class="tick hidden" role="img" aria-label="${L().completed}">✓</span><span class="tag live">${L().open}</span><h3>${c.t}</h3><p>${c.d}</p><p class="who2">${c.w}</p><div class="prog" data-prog="${t.id}"></div>
+    <div class="row"><a class="btn" href="#/open/${t.id}">${seen()[t.id] ? L().openTest : L().start}</a><a class="btn alt" href="#/guide/${t.id}">${L().guide}</a></div></article>`;
+}
+function vHome() {
+  const l = L();
+  return `<p class="eyebrow">${l.eyebrow}</p><h1>${l.welcomeTitle}</h1><p class="lead">${l.welcome}</p>
+    <h2>${l.how}</h2><div class="steps3">
+      <div class="box"><b>1</b><h3>${l.s1}</h3><p>${l.s1d}</p></div>
+      <div class="box"><b>2</b><h3>${l.s2}</h3><p>${l.s2d}</p></div>
+      <div class="box"><b>3</b><h3>${l.s3}</h3><p>${l.s3d}</p></div></div>
+    <h2>${l.tests}</h2><div class="cards">${TESTS.map(card).join('')}</div><p class="note">${l.privacy}</p>`;
+}
+function vTests() {
+  const l = L();
+  return `<h1>${l.testsTitle}</h1><p>${l.testsIntro}</p><div id="overall" class="overall hidden"></div><div class="cards">${TESTS.map(card).join('')}</div>`;
+}
+function vGuides() {
+  const l = L();
+  return `<h1>${l.guidesTitle}</h1><p>${l.guidesIntro}</p><div class="cards">${TESTS.filter((t) => !t.soon).map((t) =>
+    `<article class="card"><h3>${l.cards[t.id].t}</h3><p>${l.cards[t.id].d}</p><div class="row"><a class="btn" href="#/guide/${t.id}">${l.guide}</a></div></article>`).join('')}</div>`;
+}
+function vGuide(id) {
+  const l = L(), g = GUIDES[id] && GUIDES[id][lang]; if (!g) return vHome();
+  const list = (a) => `<ul>${a.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
+  const extra = sess.role === 'admin' ? g.a : g.p;
+  return `<a class="back" href="#/home">← ${l.home}</a><h1>${g.title}</h1><p class="lead">${g.purpose}</p>
+    <h2>${l.steps}</h2><ol>${g.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
+    ${extra ? `<h2>${sess.role === 'admin' ? l.adminOnly : l.partnerOnly}</h2>${list(extra)}` : ''}
+    <h2>${l.good}</h2>${list(g.tips)}<p style="margin-top:26px"><a class="btn" href="#/go/${id}">${l.openTest}</a></p>`;
+}
+function vProfile() {
+  const l = L(), s = sess;
+  const st = (ok, n) => `<div class="${ok ? 'ok' : 'no'}">${n}: ${ok ? l.on : l.off}</div>`;
+  return `<h1>${l.profileTitle}</h1><div class="avatar">${esc((s.label || '?').trim().charAt(0).toUpperCase())}</div>
+    <dl class="kv"><dt>${l.name}</dt><dd>${esc(s.label)}</dd><dt>${l.role}</dt><dd>${s.role === 'admin' ? l.roleAdmin : l.rolePartner}</dd>
+    <dt>${l.language}</dt><dd>${lang === 'en' ? 'English' : 'Français'}</dd>
+    <dt>${l.sessions}</dt><dd><div class="ok">Test 1: ${l.on}</div>${st(!!get(K2), 'Test 2')}</dd></dl>
+    ${s.role === 'admin' ? `<p>${l.adminNote}</p>` : ''}<p class="note">${l.expiry}</p><p class="note">Sanctuaire Test${SENV.staging ? ' · STAGING' : ''} · ${l.version} ${VERSION}</p>
+    ${s.role === 'admin' ? `<h2>${l.reportsTitle}</h2><p>${l.reportsIntro}</p><div id="rmsg" role="status"></div><div id="reports"><p class="who2">${l.loadingR}</p></div>` : ''}
+    <p style="margin-top:26px"><button id="so" type="button" class="alt">${l.signout}</button></p>`;
+}
+
+// ---- progress (read from the existing test functions; nothing new on the server) ----
+const PROG = {}; let progAt = 0, progBusy = false, cur = 'home';
+const t2strings = () => window.T2 && T2.STRINGS ? Promise.resolve() : new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'sanctuaire-test2/strings.js'; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+async function prog1() {
+  if (!sess.tok1) { PROG['1'] = { err: 'conn' }; return; }
+  try {
+    const r = await rpc('t1_get_sheet', { p_token: sess.tok1 });
+    if (!r || !r.ok) { PROG['1'] = { err: r && r.error === 'auth' ? 'conn' : 'x' }; return; }
+    const per = r.categories.length * 3, by = {};
+    ['admin', 'partner'].forEach((a) => { by[a] = { d: r.items.filter((i) => i.author === a && i.status === 'done').length, t: per }; });
+    PROG['1'] = { done: by.admin.d + by.partner.d, total: per * 2, by };
+  } catch (e) { PROG['1'] = { err: 'x' }; }
+}
+async function progCap() {
+  if (!sess.tok2) { PROG.cap = { err: 'conn' }; return; }
+  try {
+    const r = await rpc('hub_cap_status', { p_token: sess.tok2 });
+    if (!r || !r.ok) { PROG.cap = { err: r && r.error === 'auth' ? 'conn' : 'x' }; return; }
+    const by = {};
+    ['admin', 'partner'].forEach((a) => { const x = (r.people || {})[a] || {}; by[a] = { d: ['basic', 'speed', 'mem'].filter((k) => x[k]).length, t: 3 }; });
+    PROG.cap = { done: by.admin.d + by.partner.d, total: 6, by };
+  } catch (e) { PROG.cap = { err: 'x' }; }
+}
+async function prog2() {
+  if (!sess.tok2) { PROG['2'] = { err: 'conn' }; return; }
+  try {
+    await t2strings();
+    const r = await rpc('t2_get_sheet', { p_token: sess.tok2 });
+    if (!r || !r.ok) { PROG['2'] = { err: r && r.error === 'auth' ? 'conn' : 'x' }; return; }
+    PROG['2'] = { done: r.items.filter((i) => i.status === 'agreed').length, total: T2.STRINGS.length };
+  } catch (e) { PROG['2'] = { err: 'x' }; }
+}
+function paintProgress() {
+  const l = L(); let c = 0, n = 0;
+  document.querySelectorAll('[data-prog]').forEach((el) => {
+    const id = el.dataset.prog, p = PROG[id], card = el.closest('.card'), tick = card.querySelector('.tick');
+    let html = '', ok = false;
+    if (!p) html = `<p class="who2">${l.loading}</p>`;
+    else if (p.err) html = `<p class="who2 no">${p.err === 'conn' ? l.notConn : l.progErr}</p>`;
+    else {
+      const pct = p.total ? Math.floor(100 * p.done / p.total) : 0; ok = p.total > 0 && p.done === p.total;
+      html = `<div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><p class="pl"><b>${pct}%</b> · ${l.counts[id](p.done, p.total)}</p>` +
+        (p.by ? `<p class="who2">${['admin', 'partner'].map((a) => `${l.roleShort[a]} ${p.by[a].d}/${p.by[a].t}${p.by[a].d === p.by[a].t ? ' ✓' : ''}`).join(' · ')}</p>` : '');
+    }
+    el.innerHTML = html; card.classList.toggle('done', ok); tick.classList.toggle('hidden', !ok);
+  });
+  ['1', '2', 'cap'].forEach((id) => { if (PROG[id] && !PROG[id].err) { n++; if (PROG[id].total > 0 && PROG[id].done === PROG[id].total) c++; } });
+  const ov = $('overall'); if (ov) { ov.textContent = l.overall(c, 3); ov.classList.toggle('hidden', n === 0); }
+}
+async function loadProgress(force) {
+  if (!sess || progBusy || (!force && Date.now() - progAt < 20000)) { paintProgress(); return; }
+  progBusy = true;
+  try { await Promise.all([prog1(), prog2(), progCap()]); progAt = Date.now(); } finally { progBusy = false; }
+  paintProgress();
+}
+setInterval(() => { if (sess && !document.hidden && (cur === 'home' || cur === 'tests')) loadProgress(false); }, 30000);
+
+// ---- reports (admin only; every PDF is built in the browser) ----
+const rbtns = (a) => `<span class="rb"><button type="button" class="alt" ${a} data-lang="en">${L().pdfEn}</button><button type="button" class="alt" ${a} data-lang="fr">${L().pdfFr}</button></span>`;
+const rrow = (label, a) => `<div class="rrow"><span>${label}</span>${rbtns(a)}</div>`;
+function testRows(id, ver, arch, when) {
+  const l = L(), head = arch ? `${l.ver(ver)} · ${l.saved} ${when}` : `${l.current} · ${l.ver(ver)}`, base = `data-test="${id}" data-ver="${ver}" data-arch="${arch || ''}"`;
+  if (id !== 'cap') return rrow(esc(head), base);
+  return `<div class="rrow"><b>${esc(head)}</b></div>` + ['admin', 'partner'].map((r) => rrow(r === 'admin' ? l.pEn : l.pFr, `${base} data-role="${r}"`)).join('');
+}
+async function loadReports() {
+  const box = $('reports'); if (!box) return;
+  const l = L();
+  if (!sess.tok2) { box.innerHTML = `<p class="who2 no">${l.notConn}</p>`; return; }
+  try {
+    const r = await rpc('hub_reports_index', { p_token: sess.tok2 });
+    if (!r || !r.ok) throw new Error('x');
+    box.innerHTML = ['1', '2', 'cap'].map((id) => {
+      const arch = r.archives.filter((a) => a.test_id === id);
+      const old = arch.map((a) => testRows(id, a.version, a.id, new Date(a.taken_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB')) + (a.label ? `<p class="who2" style="margin:0 0 6px">${esc(a.label)}</p>` : '')).join('');
+      return `<article class="card" style="margin-bottom:14px"><h3>${l.cards[id].t}</h3>${testRows(id, r.current[id] || 1, null)}${old || `<p class="who2">${l.noArch}</p>`}</article>`;
+    }).join('');
+    box.onclick = (e) => { const b = e.target.closest('button[data-test]'); if (b) doExport(b); };
+  } catch (e) { box.innerHTML = `<p class="who2 no">${l.rFail}</p>`; }
+}
+async function doExport(b) {
+  const d = b.dataset, l = L(), msg = $('rmsg'); msg.className = ''; msg.textContent = l.rBusy; b.disabled = true;
+  try {
+    let data;
+    if (d.arch) {
+      const r = await rpc('hub_archive_get', { p_token: sess.tok2, p_id: Number(d.arch) }); if (!r.ok) throw new Error('arch');
+      data = r.snapshot;
+      if (d.test === 'cap') { const row = (data.people || []).find((x) => x.role === d.role); data = { role: d.role, data: row ? row.data : {} }; }
+    } else if (d.test === '1') {
+      const r = await rpc('t1_get_sheet', { p_token: sess.tok1 }); if (!r.ok) throw new Error('t1'); data = { categories: r.categories, items: r.items };
+    } else if (d.test === '2') {
+      const r = await rpc('t2_get_sheet', { p_token: sess.tok2 }); if (!r.ok) throw new Error('t2'); data = { items: r.items, events: r.events };
+    } else {
+      const r = await rpc('hub_cap_get', { p_token: sess.tok2, p_role: d.role }); if (!r.ok) throw new Error('cap'); data = { role: d.role, data: r.data };
+    }
+    const mod = await import('./reports.js');
+    const name = await mod.makeReport({ test: d.test, lang: d.lang, version: d.ver, data });
+    msg.className = 'ok'; msg.textContent = l.rDone(name);
+  } catch (e) { console.error(e); msg.className = 'no'; msg.textContent = l.rErr; }
+  finally { b.disabled = false; }
+}
+
+// ---- router ----
+function route() {
+  if (!sess) return;
+  const p = (location.hash || '#/home').split('/'), r = p[1] || 'home', id = p[2];
+  const t = TESTS.find((x) => x.id === id);
+  if (r === 'open' && t && !t.soon) { if (seen()[id]) { location.href = t.url; } else { location.replace('#/guide/' + id); } return; }
+  if (r === 'go' && t && !t.soon) { const m = seen(); m[id] = true; put(SEENK, m); location.href = t.url; return; }
+  const v = r === 'tests' ? vTests() : r === 'guides' ? vGuides() : r === 'guide' ? vGuide(id) : r === 'profile' ? vProfile() : vHome();
+  $('view').innerHTML = v; window.scrollTo(0, 0);
+  const so = $('so'); if (so) so.onclick = signOut;
+  if (r === 'profile' && sess.role === 'admin') loadReports();
+  cur = r === 'tests' ? 'tests' : (r === 'home' || !r) ? 'home' : r;
+  if (cur === 'home' || cur === 'tests') loadProgress(false);
+  if (bar) bar.setActive(r === 'guide' || r === 'guides' ? 'guides' : r === 'profile' ? 'profile' : r === 'tests' || r === 'open' ? 'tests' : 'home');
+}
+function chrome() { if (bar) bar.setLang(lang); document.documentElement.lang = lang; }
+function start() {
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  if (!bar) bar = SBar.mount({ base: '', lang, onLang: (x) => { lang = x; sess.lang = x; put(HUB, sess); chrome(); route(); } });
+  chrome(); route();
+}
+$('go').onclick = doLogin;
+$('pin').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+window.addEventListener('hashchange', route);
+
+function boot() {
+  const saved = get(HUB);
+  if (live(saved)) { sess = saved; lang = saved.lang || 'en'; start(); } else { showLogin(); }
+}
+let skipped = false; try { skipped = !!sessionStorage.getItem(SKIP); } catch (e) { /* ignore */ }
+if (!standalone && !skipped) showInstall(); else boot();
+</script>
+</body>
+</html>
