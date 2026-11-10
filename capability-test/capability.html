@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sanctuaire · Phone capability check</title>
+<style>
+  :root { --bg:#eef1f5; --panel:#fff; --ink:#1b2430; --muted:#5b6676; --line:#d5dbe3; --accent:#2f6f8f; --good:#2f7d5b; --warn:#a86b12; --bad:#b4452f; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:42rem; margin:0 auto; padding:1rem 1rem 4rem; }
+  h1 { font-size:1.4rem; line-height:1.25; margin:.8rem 0 .25rem; }
+  h2 { font-size:1.05rem; margin:0 0 .5rem; }
+  p { margin:.35rem 0; }
+  .muted { color:var(--muted); font-size:.92rem; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1rem; margin-top:.9rem; }
+  label { display:block; font-weight:600; margin:.2rem 0; }
+  select { font:inherit; padding:.45rem .6rem; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  button { font:inherit; min-height:2.75rem; padding:.45rem .9rem; border-radius:8px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
+  button.secondary { background:#fff; color:var(--accent); }
+  button.warn { background:#fff; color:var(--warn); border-color:var(--warn); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button:focus-visible, select:focus-visible { outline:3px solid #f0b429; outline-offset:2px; }
+  .row { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.6rem; }
+  .row > * { flex:1 1 auto; }
+  table { width:100%; border-collapse:collapse; font-size:.93rem; }
+  td { padding:.4rem .3rem; border-top:1px solid var(--line); vertical-align:top; overflow-wrap:anywhere; }
+  td.k { color:var(--muted); width:42%; }
+  .s { font-weight:700; white-space:nowrap; padding-right:.3rem; }
+  .ok .s { color:var(--good); } .warn .s { color:var(--warn); } .bad .s { color:var(--bad); } .info .s { color:var(--muted); }
+  .verdict p { margin:.45rem 0; }
+  .box { border-left:4px solid var(--line); padding:.2rem .7rem; margin:.5rem 0; }
+  .box.ok { border-color:var(--good); } .box.warn { border-color:var(--warn); } .box.bad { border-color:var(--bad); }
+  .msg { min-height:1.2rem; font-size:.9rem; color:var(--muted); margin-top:.4rem; overflow-wrap:anywhere; }
+</style>
+<link rel="stylesheet" href="../theme.css">
+</head>
+<body>
+<script src="../config.js"></script>
+<script src="../env.js"></script>
+<script src="../hub-bar.js"></script>
+<main>
+  <h1 id="t-title"></h1>
+  <p class="muted" id="t-intro"></p>
+  <p id="capstat" class="muted" role="status"></p>
+
+  <section class="card">
+    <h2 id="t-h-basic"></h2>
+    <table id="basic"></table>
+  </section>
+
+  <section class="card">
+    <h2 id="t-h-speed"></h2>
+    <p class="muted" id="t-speed-help"></p>
+    <div class="row"><button id="speed" type="button"></button></div>
+    <table id="speedtab"></table>
+    <div class="msg" id="speedmsg" role="status" aria-live="polite"></div>
+  </section>
+
+  <section class="card">
+    <h2 id="t-h-mem"></h2>
+    <p class="muted" id="t-mem-help"></p>
+    <div class="row"><button id="mem" type="button" class="warn"></button></div>
+    <table id="memtab"></table>
+    <div class="msg" id="memmsg" role="status" aria-live="polite"></div>
+  </section>
+
+  <section class="card verdict">
+    <h2 id="t-h-verdict"></h2>
+    <div id="verdict"></div>
+  </section>
+
+  <section class="card">
+    <h2 id="t-h-send"></h2>
+    <p class="muted" id="t-send-help"></p>
+    <div class="row">
+      <button id="copy" type="button" class="secondary"></button>
+      <button id="save" type="button" class="secondary"></button>
+    </div>
+    <div class="msg" id="copymsg" role="status" aria-live="polite"></div>
+  </section>
+</main>
+
+<script>
+(() => {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const MB = 1048576;
+const SB = SENV.sb, SBKEY = SENV.key;   // from config.js
+const MEM_KEY = 'sanctuaire-capability-mem-v1';
+
+// ---------- texts (the copied report is always in English) ----------
+const I18N = {
+  en: {
+    title: 'Phone capability check',
+    intro: 'This page checks whether this phone could run a small language model inside the browser. It downloads no model. Nothing you do here is sent anywhere.',
+    lang: 'Language',
+    hBasic: '1. Basic check (ran automatically)', hSpeed: '2. Speed test', hMem: '3. Memory test', hVerdict: 'Rough verdict', hSend: 'Send the results',
+    speedHelp: 'Runs a few short calculations on the phone\'s graphics chip, about 5 seconds. It safely measures how fast the chip can read memory, which sets the speed of a language model.',
+    speedBtn: 'Run the speed test', speedRun: 'Running…', speedNone: 'No usable graphics chip, so there is nothing to test.',
+    memHelp: 'Tries to reserve empty graphics memory in steps, up to about 1.5 GB, to see how much this phone gives a page. Nothing is downloaded. On a phone with little memory the browser tab may restart; that is itself a result. Run it last.',
+    memBtn: 'Run the memory test (the tab may restart)', memRun: 'Testing…',
+    sendHelp: 'Paste the results into the chat. They include your phone model and Android version; delete those two lines first if you prefer.',
+    copy: 'Copy results', save: 'Save results as a text file', copied: 'Copied. Paste it into the chat.', copyFail: 'Could not copy. Use the file option instead.',
+    capSaved: (n) => `Saved for you: ${n} of 3 checks done.`, capErr: 'Your result could not be saved. Check the internet and run the check again.',
+    previousMem: (mb) => `The previous memory test did not finish (the tab probably restarted). The last amount that worked was ${mb} MB.`,
+    v: {
+      none: 'This browser has no WebGPU, so a language model cannot run on this phone in a usable way. The cloud option is the way forward for this phone.',
+      noAdapter: 'WebGPU exists, but the browser found no usable graphics chip. A language model cannot run here in a usable way.',
+      soft: 'The browser is only offering a slow software fallback instead of the real graphics chip. A language model would be too slow.',
+      noDevice: 'The graphics chip could not be started for computing. A language model cannot run here.',
+      okBase: 'WebGPU works. Whether a model fits depends on memory, below.',
+      small: (ok) => `Small model (about 250 MB): ${ok}.`,
+      big: (ok) => `1-billion-parameter model (about 700 MB): ${ok}.`,
+      likely: 'looks possible', risky: 'risky: it may crash or be very slow', unlikely: 'unlikely on this phone', unknown: 'unknown until the memory test is run',
+      speed: (a, b) => `Speed ceiling from the measured memory speed: up to about ${a} tokens per second for the small model and ${b} for the 1B model (a token is a piece of a word, so a short message is a few dozen). Real speed is often half of this or less.`,
+      caveat: 'This is a rough guide, not a promise. A real trial on your sentences is what decides.',
+    },
+  },
+  fr: {
+    title: 'Vérification des capacités du téléphone',
+    intro: 'Cette page vérifie si ce téléphone pourrait faire tourner un petit modèle de langage dans le navigateur. Elle ne télécharge aucun modèle. Rien de ce que tu fais ici n\'est envoyé.',
+    lang: 'Langue',
+    hBasic: '1. Vérification de base (lancée automatiquement)', hSpeed: '2. Test de vitesse', hMem: '3. Test de mémoire', hVerdict: 'Verdict approximatif', hSend: 'Envoyer les résultats',
+    speedHelp: 'Lance quelques calculs courts sur la puce graphique du téléphone, environ 5 secondes. Cela mesure sans risque la vitesse de lecture de la mémoire, qui fixe la vitesse d\'un modèle de langage.',
+    speedBtn: 'Lancer le test de vitesse', speedRun: 'En cours…', speedNone: 'Aucune puce graphique utilisable, donc rien à tester.',
+    memHelp: 'Essaie de réserver de la mémoire graphique vide par étapes, jusqu\'à environ 1,5 Go, pour voir ce que ce téléphone accorde à une page. Rien n\'est téléchargé. Sur un téléphone avec peu de mémoire, l\'onglet peut redémarrer : c\'est aussi un résultat. À lancer en dernier.',
+    memBtn: 'Lancer le test de mémoire (l\'onglet peut redémarrer)', memRun: 'Test en cours…',
+    sendHelp: 'Colle les résultats dans la conversation. Ils contiennent le modèle de ton téléphone et la version d\'Android ; supprime ces deux lignes avant si tu préfères.',
+    copy: 'Copier les résultats', save: 'Enregistrer les résultats en fichier texte', copied: 'Copié. Colle-le dans la conversation.', copyFail: 'Impossible de copier. Utilise plutôt le fichier.',
+    capSaved: (n) => `Enregistré pour toi : ${n} test${n > 1 ? 's' : ''} sur 3 terminé${n > 1 ? 's' : ''}.`, capErr: 'Ton résultat n’a pas pu être enregistré. Vérifie internet et relance le test.',
+    previousMem: (mb) => `Le test de mémoire précédent ne s'est pas terminé (l'onglet a probablement redémarré). Dernière quantité qui a fonctionné : ${mb} Mo.`,
+    v: {
+      none: 'Ce navigateur n\'a pas WebGPU : un modèle de langage ne peut pas tourner correctement sur ce téléphone. L\'option cloud est la voie à suivre pour ce téléphone.',
+      noAdapter: 'WebGPU existe, mais le navigateur n\'a trouvé aucune puce graphique utilisable. Un modèle de langage ne peut pas tourner correctement ici.',
+      soft: 'Le navigateur ne propose qu\'une solution logicielle lente à la place de la vraie puce graphique. Un modèle de langage serait trop lent.',
+      noDevice: 'La puce graphique n\'a pas pu être démarrée pour le calcul. Un modèle de langage ne peut pas tourner ici.',
+      okBase: 'WebGPU fonctionne. La possibilité de faire tenir un modèle dépend de la mémoire, ci-dessous.',
+      small: (ok) => `Petit modèle (environ 250 Mo) : ${ok}.`,
+      big: (ok) => `Modèle à 1 milliard de paramètres (environ 700 Mo) : ${ok}.`,
+      likely: 'semble possible', risky: 'risqué : il peut planter ou être très lent', unlikely: 'peu probable sur ce téléphone', unknown: 'inconnu tant que le test de mémoire n\'est pas fait',
+      speed: (a, b) => `Plafond de vitesse d'après la vitesse de mémoire mesurée : jusqu'à environ ${a} jetons par seconde pour le petit modèle et ${b} pour le modèle à 1 milliard (un jeton est un morceau de mot, donc un message court en fait quelques dizaines). La vitesse réelle est souvent la moitié, ou moins.`,
+      caveat: 'C\'est un repère approximatif, pas une promesse. Seul un vrai essai sur tes phrases tranche.',
+    },
+  },
+};
+let L = (window.SBar && SBar.lang()) || 'en';       // follows the top bar (French by default for the French speaker)
+const t = () => I18N[L];
+
+// ---------- state ----------
+const R = {            // everything measured, in plain values
+  basic: [],           // {k, v, s}
+  speed: [],
+  mem: [],
+  gpu: { status: 'unknown' },   // none | noAdapter | soft | noDevice | ok | unknown
+  limits: {}, deviceMemory: null,
+  bandwidthGBps: null, memOkMB: null, memFailed: false,
+  previousMemMB: null,
+};
+let adapter = null, device = null;
+
+const fmtMB = (b) => (b == null ? 'n/a' : `${Math.round(b / MB)} MB`);
+function row(list, k, v, s = 'info') { list.push({ k, v: String(v), s }); }
+function drawTable(el, list) {
+  el.textContent = '';
+  for (const r of list) {
+    const tr = document.createElement('tr'); tr.className = r.s;
+    const tdk = document.createElement('td'); tdk.className = 'k'; tdk.textContent = r.k;
+    const tdv = document.createElement('td');
+    const sp = document.createElement('span'); sp.className = 's';
+    sp.textContent = { ok: '✓ ', warn: '! ', bad: '✗ ', info: '' }[r.s];
+    tdv.append(sp, document.createTextNode(r.v));
+    tr.append(tdk, tdv); el.append(tr);
+  }
+}
+
+// ---------- 1. basic check ----------
+// ---------- save my result on the server (one result per person; the hub shows who has finished) ----------
+let capN = null, capErr = false;
+function paintCap() { const el = $('capstat'); if (el) el.textContent = capErr ? t().capErr : capN == null ? '' : t().capSaved(capN); }
+async function saveCap(part) {
+  let ses = null; try { ses = JSON.parse(localStorage.getItem('sanctuaire-test2-session-v1') || 'null'); } catch { /* ignore */ }
+  if (!ses || !ses.token) { SBar.toHub(); return; }
+  const d = {};
+  if (part === 'basic') Object.assign(d, { basic: R.basic, gpu: R.gpu, limits: R.limits, deviceMemory: R.deviceMemory, basic_done: true });
+  if (part === 'speed') Object.assign(d, { speed: R.speed, bandwidthGBps: R.bandwidthGBps, speed_done: true });
+  if (part === 'mem') Object.assign(d, { mem: R.mem, memOkMB: R.memOkMB, memFailed: R.memFailed, mem_done: true });
+  try {
+    const res = await fetch(`${SB}/rest/v1/rpc/hub_cap_save`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SBKEY }, body: JSON.stringify({ p_token: ses.token, p_data: d }) });
+    const j = await res.json();
+    if (j && j.ok) { capN = j.mine; capErr = false; } else if (j && j.error === 'auth') { SBar.toHub(); return; } else capErr = true;
+  } catch { capErr = true; }
+  paintCap();
+}
+
+async function basicCheck() {
+  const out = R.basic = [];
+  // versions
+  let hv = {};
+  try { if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) hv = await navigator.userAgentData.getHighEntropyValues(['platform', 'platformVersion', 'model', 'uaFullVersion', 'architecture']); } catch { /* ignore */ }
+  const chromeUa = (navigator.userAgent.match(/Chrome\/([\d.]+)/) || [])[1];
+  const chromeVer = hv.uaFullVersion || chromeUa || 'unknown';
+  const chromeMajor = parseInt(chromeVer, 10) || 0;
+  row(out, 'Browser', `Chrome ${chromeVer}`, chromeMajor >= 121 ? 'ok' : chromeMajor ? 'warn' : 'info');
+  const platform = hv.platform || (/Android/.test(navigator.userAgent) ? 'Android' : (navigator.platform || 'unknown'));
+  const pv = hv.platformVersion || '';
+  const androidMajor = platform === 'Android' && pv ? parseInt(pv, 10) : null;
+  row(out, 'System version (real)', `${platform} ${pv || '(not reported)'}`, androidMajor == null ? 'info' : (androidMajor >= 12 ? 'ok' : 'warn'));
+  row(out, 'Phone model', hv.model || '(not reported)');
+  row(out, 'Processor type', hv.architecture || 'n/a');
+  R.deviceMemory = navigator.deviceMemory ?? null;
+  row(out, 'Memory (rounded by the browser)', navigator.deviceMemory ? `${navigator.deviceMemory} GB` : 'not reported', navigator.deviceMemory >= 6 ? 'ok' : navigator.deviceMemory >= 4 ? 'warn' : 'info');
+  row(out, 'Processor threads', navigator.hardwareConcurrency ?? 'n/a');
+  const c = navigator.connection;
+  if (c) row(out, 'Connection', `${c.effectiveType || '?'}, about ${c.downlink ?? '?'} Mbit/s`);
+  try { const e = await navigator.storage.estimate(); row(out, 'Storage this site may use', `${fmtMB(e.quota)} (used ${fmtMB(e.usage)})`); } catch { /* ignore */ }
+
+  // WebAssembly on the processor (the fallback without a graphics chip)
+  let simd = false;
+  try { simd = WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11])); } catch { /* ignore */ }
+  row(out, 'WebAssembly SIMD (processor speed-up)', simd ? 'yes' : 'no', simd ? 'ok' : 'warn');
+  const threads = typeof SharedArrayBuffer !== 'undefined' && self.crossOriginIsolated === true;
+  row(out, 'Multi-threaded WebAssembly on this site', threads ? 'yes' : 'no (this host does not allow it)', 'info');
+
+  // WebGPU
+  if (!('gpu' in navigator) || !navigator.gpu) {
+    row(out, 'WebGPU', 'not available', 'bad'); R.gpu.status = 'none'; return;
+  }
+  row(out, 'WebGPU', 'available', 'ok');
+  try { adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }); } catch (e) { adapter = null; }
+  if (!adapter) { row(out, 'Graphics adapter', 'none found', 'bad'); R.gpu.status = 'noAdapter'; return; }
+  let info = adapter.info || null;
+  try { if (!info && adapter.requestAdapterInfo) info = await adapter.requestAdapterInfo(); } catch { /* ignore */ }
+  row(out, 'Graphics chip', info ? [info.vendor, info.architecture, info.device, info.description].filter(Boolean).join(' · ') || 'reported without a name' : 'no details reported');
+  const soft = adapter.isFallbackAdapter === true || (info && /swiftshader|llvmpipe|software/i.test(`${info.vendor} ${info.description} ${info.device}`));
+  if (soft) { row(out, 'Real graphics chip', 'no: software fallback', 'bad'); R.gpu.status = 'soft'; return; }
+  const lim = adapter.limits || {};
+  R.limits = { maxBufferSize: lim.maxBufferSize, maxStorageBufferBindingSize: lim.maxStorageBufferBindingSize };
+  row(out, 'Largest single buffer', fmtMB(lim.maxBufferSize), lim.maxBufferSize >= 1024 * MB ? 'ok' : lim.maxBufferSize >= 256 * MB ? 'warn' : 'bad');
+  row(out, 'Largest storage binding', fmtMB(lim.maxStorageBufferBindingSize), lim.maxStorageBufferBindingSize >= 512 * MB ? 'ok' : 'warn');
+  row(out, 'Workgroup storage', lim.maxComputeWorkgroupStorageSize ? `${Math.round(lim.maxComputeWorkgroupStorageSize / 1024)} KB` : 'n/a');
+  const f16 = adapter.features && adapter.features.has('shader-f16');
+  row(out, '16-bit math (faster models)', f16 ? 'yes' : 'no', f16 ? 'ok' : 'warn');
+  const sg = adapter.features && (adapter.features.has('subgroups') || adapter.features.has('chromium-experimental-subgroups'));
+  row(out, 'Subgroups', sg ? 'yes' : 'no');
+
+  // can a compute device actually be started, with the largest limits (as language-model engines ask for)
+  try {
+    const req = {};
+    if (lim.maxBufferSize) req.maxBufferSize = lim.maxBufferSize;
+    if (lim.maxStorageBufferBindingSize) req.maxStorageBufferBindingSize = lim.maxStorageBufferBindingSize;
+    try { device = await adapter.requestDevice({ requiredLimits: req }); }
+    catch { device = await adapter.requestDevice(); row(out, 'Device with the largest limits', 'refused; started with defaults', 'warn'); }
+    device.lost.then((l) => { R.deviceLost = l && l.message; });
+    row(out, 'Compute device', 'started', 'ok');
+    R.gpu.status = 'ok';
+  } catch (e) {
+    row(out, 'Compute device', `failed: ${e.message || e}`, 'bad'); R.gpu.status = 'noDevice';
+  }
+}
+
+// ---------- 2. speed test ----------
+const WGSL_BW = `
+struct P { count: u32, total: u32 }
+@group(0) @binding(0) var<storage, read> src: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read_write> dst: array<f32>;
+@group(0) @binding(2) var<uniform> p: P;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  var acc = vec4<f32>(0.0);
+  var i = gid.x;
+  loop {
+    if (i >= p.count) { break; }
+    acc = acc + src[i];
+    i = i + p.total;
+  }
+  dst[gid.x] = acc.x + acc.y + acc.z + acc.w;
+}`;
+const WGSL_MM = `
+struct P { n: u32 }
+@group(0) @binding(0) var<storage, read> a: array<f32>;
+@group(0) @binding(1) var<storage, read> b: array<f32>;
+@group(0) @binding(2) var<storage, read_write> c: array<f32>;
+@group(0) @binding(3) var<uniform> p: P;
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let n = p.n;
+  let row = gid.y;
+  let col = gid.x;
+  if (row >= n || col >= n) { return; }
+  var sum = 0.0;
+  for (var k = 0u; k < n; k = k + 1u) {
+    sum = sum + a[row * n + k] * b[k * n + col];
+  }
+  c[row * n + col] = sum;
+}`;
+
+async function timed(label, encodeFn) {
+  const enc = device.createCommandEncoder();
+  encodeFn(enc);
+  const t0 = performance.now();
+  device.queue.submit([enc.finish()]);
+  await device.queue.onSubmittedWorkDone();
+  return (performance.now() - t0) / 1000;
+}
+
+async function speedTest() {
+  const out = R.speed = [];
+  $('speed').disabled = true; $('speed').textContent = t().speedRun;
+  try {
+    if (R.gpu.status !== 'ok' || !device) { $('speedmsg').textContent = t().speedNone; return; }
+    const U = GPUBufferUsage;
+    device.pushErrorScope('validation');
+
+    // memory bandwidth: read a 64 MB buffer with many threads
+    const lim = R.limits;
+    const bytes = Math.min(64 * MB, lim.maxBufferSize || 64 * MB, lim.maxStorageBufferBindingSize || 64 * MB);
+    const count = Math.floor(bytes / 16);
+    const threads = 65536;
+    const src = device.createBuffer({ size: count * 16, usage: U.STORAGE | U.COPY_DST });
+    const dst = device.createBuffer({ size: threads * 4, usage: U.STORAGE });
+    const ub = device.createBuffer({ size: 16, usage: U.UNIFORM | U.COPY_DST });
+    device.queue.writeBuffer(ub, 0, new Uint32Array([count, threads, 0, 0]));
+    const clr = device.createCommandEncoder(); clr.clearBuffer(src); device.queue.submit([clr.finish()]);
+    const bw = device.createComputePipeline({ layout: 'auto', compute: { module: device.createShaderModule({ code: WGSL_BW }), entryPoint: 'main' } });
+    const bwGroup = device.createBindGroup({ layout: bw.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: src } }, { binding: 1, resource: { buffer: dst } }, { binding: 2, resource: { buffer: ub } }] });
+    const runBw = (enc) => { const p = enc.beginComputePass(); p.setPipeline(bw); p.setBindGroup(0, bwGroup); p.dispatchWorkgroups(threads / 64); p.end(); };
+    await timed('warm-up', runBw);
+    let best = Infinity;
+    for (let i = 0; i < 4; i++) best = Math.min(best, await timed('bw', runBw));
+    R.bandwidthGBps = (count * 16) / 1e9 / best;
+    row(out, 'Memory read speed', `${R.bandwidthGBps.toFixed(1)} GB/s (read ${fmtMB(count * 16)} in ${(best * 1000).toFixed(0)} ms)`, R.bandwidthGBps >= 20 ? 'ok' : R.bandwidthGBps >= 8 ? 'warn' : 'bad');
+
+    // raw calculation speed: a small matrix multiplication
+    const n = 512;
+    const mk = (sz, usage) => device.createBuffer({ size: sz, usage });
+    const A = mk(n * n * 4, U.STORAGE | U.COPY_DST), B = mk(n * n * 4, U.STORAGE | U.COPY_DST), C = mk(n * n * 4, U.STORAGE), pu = mk(16, U.UNIFORM | U.COPY_DST);
+    device.queue.writeBuffer(pu, 0, new Uint32Array([n, 0, 0, 0]));
+    const e2 = device.createCommandEncoder(); e2.clearBuffer(A); e2.clearBuffer(B); device.queue.submit([e2.finish()]);
+    const mm = device.createComputePipeline({ layout: 'auto', compute: { module: device.createShaderModule({ code: WGSL_MM }), entryPoint: 'main' } });
+    const mmGroup = device.createBindGroup({ layout: mm.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: A } }, { binding: 1, resource: { buffer: B } }, { binding: 2, resource: { buffer: C } }, { binding: 3, resource: { buffer: pu } }] });
+    const runMm = (enc) => { const p = enc.beginComputePass(); p.setPipeline(mm); p.setBindGroup(0, mmGroup); p.dispatchWorkgroups(n / 8, n / 8); p.end(); };
+    await timed('warm-up', runMm);
+    let bestMm = Infinity;
+    for (let i = 0; i < 3; i++) bestMm = Math.min(bestMm, await timed('mm', runMm));
+    const gflops = (2 * n * n * n) / 1e9 / bestMm;
+    row(out, 'Calculation speed (simple test)', `${gflops.toFixed(1)} GFLOPS (${n}×${n} multiply in ${(bestMm * 1000).toFixed(0)} ms)`, gflops >= 20 ? 'ok' : gflops >= 5 ? 'warn' : 'bad');
+
+    const err = await device.popErrorScope();
+    if (err) row(out, 'Warnings from the graphics chip', err.message, 'warn');
+    [src, dst, ub, A, B, C, pu].forEach((b) => b.destroy());
+  } catch (e) {
+    row(out, 'Speed test', `failed: ${e.message || e}`, 'bad');
+  } finally {
+    drawTable($('speedtab'), out);
+    $('speed').disabled = false; $('speed').textContent = t().speedBtn;
+    renderVerdict();
+    saveCap('speed');
+  }
+}
+
+// ---------- 3. memory test ----------
+async function memTest() {
+  const out = R.mem = [];
+  $('mem').disabled = true; $('mem').textContent = t().memRun;
+  R.memOkMB = 0; R.memFailed = false;
+  try {
+    if (R.gpu.status !== 'ok' || !device) { $('memmsg').textContent = t().speedNone; return; }
+    const U = GPUBufferUsage;
+    const chunk = Math.min(128 * MB, R.limits.maxBufferSize || 128 * MB);
+    const targetMB = 1536;
+    const held = [];
+    let okMB = 0;
+    while (okMB < targetMB) {
+      localStorage.setItem(MEM_KEY, JSON.stringify({ state: 'running', okMB, at: Date.now() }));   // survives a tab restart
+      device.pushErrorScope('out-of-memory');
+      device.pushErrorScope('validation');
+      let buf = null, failed = null;
+      try {
+        buf = device.createBuffer({ size: chunk, usage: U.STORAGE | U.COPY_DST });
+        const enc = device.createCommandEncoder(); enc.clearBuffer(buf); device.queue.submit([enc.finish()]);   // forces the memory to be really reserved
+        await device.queue.onSubmittedWorkDone();
+      } catch (e) { failed = e; }
+      const v = await device.popErrorScope(), o = await device.popErrorScope();
+      if (failed || v || o || R.deviceLost) { R.memFailed = true; if (buf) buf.destroy(); row(out, `Reserving ${okMB + Math.round(chunk / MB)} MB`, `refused (${(failed && failed.message) || (o && o.message) || (v && v.message) || R.deviceLost || 'error'})`, 'bad'); break; }
+      held.push(buf); okMB += Math.round(chunk / MB);
+      R.memOkMB = okMB;
+      $('memmsg').textContent = `${okMB} MB reserved…`;
+    }
+    row(out, 'Graphics memory reserved in total', `${okMB} MB${okMB >= targetMB ? ' (stopped at the limit of the test)' : ''}`, okMB >= 1024 ? 'ok' : okMB >= 512 ? 'warn' : 'bad');
+    held.forEach((b) => b.destroy());
+    localStorage.removeItem(MEM_KEY);
+  } catch (e) {
+    row(out, 'Memory test', `failed: ${e.message || e}`, 'bad');
+    localStorage.removeItem(MEM_KEY);
+  } finally {
+    drawTable($('memtab'), out);
+    $('mem').disabled = false; $('mem').textContent = t().memBtn;
+    $('memmsg').textContent = '';
+    renderVerdict();
+    saveCap('mem');
+  }
+}
+
+// ---------- verdict ----------
+function verdictParts() {
+  const g = R.gpu.status;
+  if (g === 'none' || g === 'noAdapter' || g === 'soft' || g === 'noDevice') return { level: 'bad', lines: [t().v[g]] };
+  if (g !== 'ok') return { level: 'info', lines: [] };
+  const lines = [t().v.okBase];
+  const mem = R.memOkMB;                      // null until the memory test has run
+  const big = R.limits.maxBufferSize || 0;
+  const dm = R.deviceMemory || 0;
+  let small, one;
+  if (mem == null) { small = big >= 256 * MB ? 'unknown' : 'unlikely'; one = 'unknown'; }
+  else {
+    small = mem >= 512 ? 'likely' : mem >= 320 ? 'risky' : 'unlikely';
+    one = mem >= 1024 ? (dm >= 6 || dm === 0 ? 'likely' : 'risky') : mem >= 768 ? 'risky' : 'unlikely';
+  }
+  lines.push(t().v.small(t().v[small]), t().v.big(t().v[one]));
+  if (R.bandwidthGBps) {
+    const a = Math.max(1, Math.round((R.bandwidthGBps * 1000) / 250));
+    const b = Math.max(1, Math.round((R.bandwidthGBps * 1000) / 700));
+    lines.push(t().v.speed(a, b));
+  }
+  lines.push(t().v.caveat);
+  const level = (one === 'likely' || small === 'likely') ? 'ok' : (one === 'unlikely' && small === 'unlikely') ? 'bad' : 'warn';
+  return { level, lines, small, one };
+}
+function renderVerdict() {
+  const v = verdictParts();
+  const host = $('verdict'); host.textContent = '';
+  const box = document.createElement('div'); box.className = `box ${v.level === 'info' ? '' : v.level}`;
+  for (const l of v.lines) { const p = document.createElement('p'); p.textContent = l; box.append(p); }
+  host.append(box);
+}
+
+// ---------- report ----------
+function reportText() {
+  const L2 = [];
+  const add = (title, list) => { L2.push(`== ${title} ==`); for (const r of list) L2.push(`${{ ok: '[OK] ', warn: '[!!] ', bad: '[NO] ', info: '     ' }[r.s]}${r.k}: ${r.v}`); L2.push(''); };
+  L2.push('Sanctuaire phone capability check', `Date: ${new Date().toISOString()}`, '');
+  add('Basic', R.basic);
+  add('Speed test', R.speed.length ? R.speed : [{ k: 'Speed test', v: 'not run', s: 'info' }]);
+  add('Memory test', R.mem.length ? R.mem : [{ k: 'Memory test', v: R.previousMemMB != null ? `did not finish; last reserved ${R.previousMemMB} MB` : 'not run', s: 'info' }]);
+  const saved = L; L = 'en';
+  L2.push('== Verdict (rough guide) =='); verdictParts().lines.forEach((x) => L2.push(x));
+  L = saved;
+  return L2.join('\n');
+}
+
+// ---------- page text ----------
+function applyLang() {
+  paintCap();
+  const x = t();
+  document.documentElement.lang = L;
+  $('t-title').textContent = x.title; $('t-intro').textContent = x.intro;
+  $('t-h-basic').textContent = x.hBasic; $('t-h-speed').textContent = x.hSpeed; $('t-h-mem').textContent = x.hMem; $('t-h-verdict').textContent = x.hVerdict; $('t-h-send').textContent = x.hSend;
+  $('t-speed-help').textContent = x.speedHelp; $('t-mem-help').textContent = x.memHelp; $('t-send-help').textContent = x.sendHelp;
+  if (!$('speed').disabled) $('speed').textContent = x.speedBtn;
+  if (!$('mem').disabled) $('mem').textContent = x.memBtn;
+  $('copy').textContent = x.copy; $('save').textContent = x.save;
+  renderVerdict();
+}
+
+// ---------- start ----------
+window.addEventListener('sanctuaire-lang', (e) => { L = e.detail; applyLang(); });
+$('speed').addEventListener('click', speedTest);
+$('mem').addEventListener('click', memTest);
+$('copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(reportText()); $('copymsg').textContent = t().copied; } catch { $('copymsg').textContent = t().copyFail; }
+});
+$('save').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([reportText()], { type: 'text/plain' }));
+  a.download = 'sanctuaire-capability-check.txt';
+  document.body.append(a); a.click(); a.remove();
+});
+applyLang();
+try {
+  const prev = JSON.parse(localStorage.getItem(MEM_KEY) || 'null');
+  if (prev && prev.state === 'running') { R.previousMemMB = prev.okMB; localStorage.removeItem(MEM_KEY); $('memmsg').textContent = t().previousMem(prev.okMB); }
+} catch { /* ignore */ }
+basicCheck().then(() => { drawTable($('basic'), R.basic); renderVerdict(); saveCap('basic'); }).catch((e) => { row(R.basic, 'Basic check', `failed: ${e.message || e}`, 'bad'); drawTable($('basic'), R.basic); });
+})();
+</script>
+</body>
+</html>
