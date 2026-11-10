@@ -71,15 +71,6 @@
     <div id="verdict"></div>
   </section>
 
-  <section class="card">
-    <h2 id="t-h-send"></h2>
-    <p class="muted" id="t-send-help"></p>
-    <div class="row">
-      <button id="copy" type="button" class="secondary"></button>
-      <button id="save" type="button" class="secondary"></button>
-    </div>
-    <div class="msg" id="copymsg" role="status" aria-live="polite"></div>
-  </section>
 </main>
 
 <script>
@@ -94,7 +85,7 @@ const MEM_KEY = 'sanctuaire-capability-mem-v1';
 const I18N = {
   en: {
     title: 'Phone capability check',
-    intro: 'This page checks whether this phone could run a small language model inside the browser. It downloads no model. Nothing you do here is sent anywhere.',
+    intro: 'This page checks whether this phone could run a small language model inside the browser. It downloads no model. Only your measurements are saved to the test database, so we can see who has finished; nothing else is sent.',
     lang: 'Language',
     hBasic: '1. Basic check (ran automatically)', hSpeed: '2. Speed test', hMem: '3. Memory test', hVerdict: 'Rough verdict', hSend: 'Send the results',
     speedHelp: 'Runs a few short calculations on the phone\'s graphics chip, about 5 seconds. It safely measures how fast the chip can read memory, which sets the speed of a language model.',
@@ -120,7 +111,7 @@ const I18N = {
   },
   fr: {
     title: 'Vérification des capacités du téléphone',
-    intro: 'Cette page vérifie si ce téléphone pourrait faire tourner un petit modèle de langage dans le navigateur. Elle ne télécharge aucun modèle. Rien de ce que tu fais ici n\'est envoyé.',
+    intro: 'Cette page vérifie si ce téléphone pourrait faire tourner un petit modèle de langage dans le navigateur. Elle ne télécharge aucun modèle. Seules tes mesures sont enregistrées dans la base de test, pour voir qui a terminé ; rien d’autre n’est envoyé.',
     lang: 'Langue',
     hBasic: '1. Vérification de base (lancée automatiquement)', hSpeed: '2. Test de vitesse', hMem: '3. Test de mémoire', hVerdict: 'Verdict approximatif', hSend: 'Envoyer les résultats',
     speedHelp: 'Lance quelques calculs courts sur la puce graphique du téléphone, environ 5 secondes. Cela mesure sans risque la vitesse de lecture de la mémoire, qui fixe la vitesse d\'un modèle de langage.',
@@ -177,7 +168,7 @@ function drawTable(el, list) {
 
 // ---------- 1. basic check ----------
 // ---------- save my result on the server (one result per person; the hub shows who has finished) ----------
-let capN = null, capErr = false;
+let capN = null, capErr = false, crashed = false;   // crashed: the last memory test ended in a tab restart, which counts as its result
 function paintCap() { const el = $('capstat'); if (el) el.textContent = capErr ? t().capErr : capN == null ? '' : t().capSaved(capN); }
 async function saveCap(part) {
   let ses = null; try { ses = JSON.parse(localStorage.getItem('sanctuaire-test2-session-v1') || 'null'); } catch { /* ignore */ }
@@ -437,30 +428,16 @@ function renderVerdict() {
 }
 
 // ---------- report ----------
-function reportText() {
-  const L2 = [];
-  const add = (title, list) => { L2.push(`== ${title} ==`); for (const r of list) L2.push(`${{ ok: '[OK] ', warn: '[!!] ', bad: '[NO] ', info: '     ' }[r.s]}${r.k}: ${r.v}`); L2.push(''); };
-  L2.push('Sanctuaire phone capability check', `Date: ${new Date().toISOString()}`, '');
-  add('Basic', R.basic);
-  add('Speed test', R.speed.length ? R.speed : [{ k: 'Speed test', v: 'not run', s: 'info' }]);
-  add('Memory test', R.mem.length ? R.mem : [{ k: 'Memory test', v: R.previousMemMB != null ? `did not finish; last reserved ${R.previousMemMB} MB` : 'not run', s: 'info' }]);
-  const saved = L; L = 'en';
-  L2.push('== Verdict (rough guide) =='); verdictParts().lines.forEach((x) => L2.push(x));
-  L = saved;
-  return L2.join('\n');
-}
-
 // ---------- page text ----------
 function applyLang() {
   paintCap();
   const x = t();
   document.documentElement.lang = L;
   $('t-title').textContent = x.title; $('t-intro').textContent = x.intro;
-  $('t-h-basic').textContent = x.hBasic; $('t-h-speed').textContent = x.hSpeed; $('t-h-mem').textContent = x.hMem; $('t-h-verdict').textContent = x.hVerdict; $('t-h-send').textContent = x.hSend;
-  $('t-speed-help').textContent = x.speedHelp; $('t-mem-help').textContent = x.memHelp; $('t-send-help').textContent = x.sendHelp;
+  $('t-h-basic').textContent = x.hBasic; $('t-h-speed').textContent = x.hSpeed; $('t-h-mem').textContent = x.hMem; $('t-h-verdict').textContent = x.hVerdict;
+  $('t-speed-help').textContent = x.speedHelp; $('t-mem-help').textContent = x.memHelp;
   if (!$('speed').disabled) $('speed').textContent = x.speedBtn;
   if (!$('mem').disabled) $('mem').textContent = x.memBtn;
-  $('copy').textContent = x.copy; $('save').textContent = x.save;
   renderVerdict();
 }
 
@@ -468,21 +445,12 @@ function applyLang() {
 window.addEventListener('sanctuaire-lang', (e) => { L = e.detail; applyLang(); });
 $('speed').addEventListener('click', speedTest);
 $('mem').addEventListener('click', memTest);
-$('copy').addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText(reportText()); $('copymsg').textContent = t().copied; } catch { $('copymsg').textContent = t().copyFail; }
-});
-$('save').addEventListener('click', () => {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([reportText()], { type: 'text/plain' }));
-  a.download = 'sanctuaire-capability-check.txt';
-  document.body.append(a); a.click(); a.remove();
-});
 applyLang();
 try {
   const prev = JSON.parse(localStorage.getItem(MEM_KEY) || 'null');
-  if (prev && prev.state === 'running') { R.previousMemMB = prev.okMB; localStorage.removeItem(MEM_KEY); $('memmsg').textContent = t().previousMem(prev.okMB); }
+  if (prev && prev.state === 'running') { R.previousMemMB = prev.okMB; R.memOkMB = prev.okMB; R.memFailed = true; R.mem = []; row(R.mem, 'Memory test', `the tab restarted; the last amount that worked was ${prev.okMB} MB`, 'bad'); crashed = true; localStorage.removeItem(MEM_KEY); $('memmsg').textContent = t().previousMem(prev.okMB); }
 } catch { /* ignore */ }
-basicCheck().then(() => { drawTable($('basic'), R.basic); renderVerdict(); saveCap('basic'); }).catch((e) => { row(R.basic, 'Basic check', `failed: ${e.message || e}`, 'bad'); drawTable($('basic'), R.basic); });
+basicCheck().then(() => { drawTable($('basic'), R.basic); renderVerdict(); saveCap('basic'); if (crashed) saveCap('mem'); }).catch((e) => { row(R.basic, 'Basic check', `failed: ${e.message || e}`, 'bad'); drawTable($('basic'), R.basic); });
 })();
 </script>
 </body>
