@@ -1,0 +1,7 @@
+The files in this folder (translator.js and worker/*) are the unmodified
+@mkljczk/bergamot-translator package, version 0.4.16, a community build of the
+Bergamot translation engine (source: https://codeberg.org/mkljczk/bergamot-translator),
+published under the Mozilla Public License 2.0: https://www.mozilla.org/MPL/2.0/
+
+It is used here only for testing. Before it is used in the real app, its origin and
+build must be reviewed.
