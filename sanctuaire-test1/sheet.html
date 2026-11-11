@@ -84,6 +84,8 @@
 <body>
 <script src="../config.js"></script>
 <script src="../env.js"></script>
+<script src="../version.js"></script>
+<script src="../notice.js"></script>
 <script src="../hub-bar.js"></script>
 <main>
   <div id="cfg" class="banner err hidden"></div>
@@ -410,6 +412,17 @@ function restoreSession() {
 }
 
 // ---------- entering the sheet ----------
+// unsent work that must survive an update (see the update notice spec)
+if (window.SNotice) SNotice.registerDraft('test1', {
+  collect: () => ({ text: Object.fromEntries(drafts), ui: { rating: Object.fromEntries(draftRating), openCats: [...openCats], filterMode } }),
+  restore: (d) => {
+    Object.entries(d.text || {}).forEach(([k, v]) => drafts.set(k, v));
+    Object.entries(d.ui.rating || {}).forEach(([k, v]) => draftRating.set(k, v));
+    (d.ui.openCats || []).forEach((c) => openCats.add(c));
+    filterMode = d.ui.filterMode || 'all'; $('filter').value = filterMode;
+    if (sheet) renderSheet();
+  }
+});
 async function enter() {
   LANG = SBar.lang();                          // follows the top-bar language (defaults by role at sign-in)
   document.documentElement.lang = LANG;
@@ -420,6 +433,7 @@ async function enter() {
   autoStartTranslator();   // not awaited: the sheet opens while the translator starts
   await refresh(true);
   startPolling();
+  if (window.SNotice) SNotice.pageReady('test1');   // the engine may be missing while an update is being uploaded
 }
 
 function buildChrome() {
