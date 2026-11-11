@@ -30,6 +30,15 @@ Never test destructive steps (reset, core update, delete) on live first.
 6. **Tag the release.** GitHub: Releases, Draft a new release, new tag such as `v2.2.0`. This is your way back.
 7. **Core update?** (new translator model, provider or tool) Run `select hub_core_update('<test id>', '<label>');` on the LIVE database at this point, together with that test's own clearing step in the update package.
 
+## Update notice ceremony (needs the notice system live in the repo you are updating)
+Ask the assistant for **"notice build"** after the update passed on staging. It gives you the START notice (or the page that makes it), the DONE notice, the new `version.js` and an ordered list for that update. The order is always:
+1. Upload the START notice (`update-notice.json`, state `updating`). **Wait until it is live** (open `.../update-notice.json?x=1` until it says `updating`) and check that an open app shows the pop-up.
+2. Run the update's SQL (additive only).
+3. Upload all update files **in one commit** (including the new `version.js`). Wait for the green tick.
+4. Check the updated app yourself with `?skipnotice=1` after the address.
+5. Upload the DONE notice (state `done`). Open apps change to "complete" and Continue refreshes them.
+The first time the engine itself is released to a repo, open apps do not have it yet, so release it when nobody is using the app. Full spec: the project document "Update notice system".
+
 ## Rollback
 Open the previous tag on GitHub, download its ZIP, upload the old versions of the changed files to the live repo. Because database changes are additive, the old files keep working with the new database.
 

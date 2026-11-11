@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#26362D">
+<script src="config.js"></script>
+<script src="env.js"></script>
+<script src="version.js"></script>
+<script src="notice.js"></script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -93,14 +97,12 @@ ol,ul{padding-left:1.3em}li{margin:.4em 0}
   <main id="view"></main>
 </div>
 
-<script src="config.js"></script>
-<script src="env.js"></script>
 <script>window.SBAR_HUB = 1;</script>
 <script src="hub-bar.js"></script>
 <script>
 'use strict';
 const SB = SENV.sb, KEY = SENV.key;   // from config.js
-const VERSION = '2.1.1';
+const VERSION = window.SANCTUAIRE_VERSION || '';
 if (SENV.staging) {
   document.title = 'Sanctuaire Test · STAGING';
   document.querySelector('.lcard .brand').textContent = 'Sanctuaire Test · STAGING';

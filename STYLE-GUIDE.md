@@ -72,6 +72,9 @@ Honest limit: static pages are public. The page redirect is a door sign; real pr
 ## Environments (live and staging)
 Two repos, two databases, same code. Read `RELEASE.md` before every update. Page load order is always `config.js`, `env.js`, `hub-bar.js`. Pages get the database from `SENV.sb` and `SENV.key`, never from a typed address. `config.js`, `manifest.webmanifest` and `icons/` belong to one environment and are never copied to the other. Browser storage works unchanged on live; on staging `env.js` prefixes every storage and IndexedDB name with `stg:`.
 
+## Update notice (every page)
+Page load order: `config.js`, `env.js`, `version.js`, `notice.js`, `hub-bar.js` (the hub loads the first four in `<head>`). A page that holds unsent work registers it: `if (window.SNotice) SNotice.registerDraft('name', { collect() { return { text: {...}, ui: {...} }; }, restore(d) { ... } })`, and calls `SNotice.pageReady('name')` once its interface is built. `text` is what the person typed and has not saved; `ui` is filters, open sections and so on. Never collect PINs, passwords, the recovery phrase or tokens. `version.js` holds the app version and is raised in every update; pages show it from `window.SANCTUAIRE_VERSION`. Spec: project document "Update notice system". Command: "notice build".
+
 ## PWA
 `manifest.webmanifest`, `sw.js` (caches nothing, on purpose), icons in `icons/` (cropped from the splash art), `assets/splash.jpg`. The hub shows an Install screen when opened in a browser (skippable once per browser session). Chrome decides when it offers the install prompt.
 
