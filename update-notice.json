@@ -1,10 +1,8 @@
 {
   "id": "2.1.1-staging-20261111b",
   "version": "2.1.1",
-  "state": "updating",
-  "files": [
-    "version.js"
-  ],
+  "state": "done",
+  "files": ["version.js"],
   "changelog": {
     "en": [
       "Test 2 “Delete everything” now works.",
@@ -18,6 +16,5 @@
       "Les trois guides ont été réécrits pour être plus clairs.",
       "Un test de mémoire qui fait redémarrer l’onglet compte maintenant comme terminé."
     ]
-  },
-  "estimatedEndAt": "2026-11-11T12:54:04.076Z"
+  }
 }
