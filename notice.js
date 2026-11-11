@@ -21,6 +21,8 @@
   };
   function sget(s, k) { try { return s.getItem(k); } catch (e) { return null; } }
   function sset(s, k, v) { try { s.setItem(k, v); } catch (e) { /* ignore */ } }
+  function who() { try { var h = JSON.parse(localStorage.getItem('sanctuaire-hub-v1') || 'null'); if (h && h.role && h.at && Date.now() - h.at < 11 * 36e5) return h.role; } catch (e) { /* ignore */ } return null; }
+  function seenKey() { return 'snotice-seen:' + who(); }                 // one "seen" per account on this device
   function lang() { try { var h = JSON.parse(localStorage.getItem('sanctuaire-hub-v1') || 'null'); if (h && h.lang) return h.lang; } catch (e) { /* ignore */ } return /^fr/i.test(navigator.language || '') ? 'fr' : 'en'; }
   function tx(k, o) { var s = T[lang()][k] || k; for (var p in (o || {})) s = s.replace('{' + p + '}', o[p]); return s; }
 
@@ -60,7 +62,7 @@
   }
 
   // ---------- pop-up ----------
-  var box = null, els = {}, mode = null, cur = null, etaTimer = null, savedAny = false;
+  var box = null, els = {}, mode = null, cur = null, etaTimer = null, savedAny = false, lock = null;
   var CSS = '#snotice{visibility:visible;position:fixed;inset:0;z-index:100001;display:grid;place-items:center;padding:20px;background:rgba(20,30,25,.86);color:#1F2A24;font:17px/1.5 Inter,system-ui,sans-serif}' +
     '@supports ((backdrop-filter:blur(8px)) or (-webkit-backdrop-filter:blur(8px))){#snotice{background:rgba(20,30,25,.5);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}}' +
     '#snotice .c{background:#FFFBF3;border-radius:20px;max-width:440px;width:100%;max-height:88vh;overflow:auto;padding:24px;box-shadow:0 12px 40px #0006;animation:snin .2s ease-out;outline:0}' +
@@ -76,8 +78,12 @@
     box.innerHTML = '<div class="c" tabindex="-1">' + (staging ? '<span class="tag">STAGING</span>' : '') + '<h2 id="sn-t"></h2><p id="sn-b"></p><p class="eta" id="sn-e"></p><h3 id="sn-h"></h3><ul id="sn-l"></ul><p id="sn-k" class="eta"></p><button type="button" id="sn-x"></button></div>';
     els = { c: box.firstChild, t: box.querySelector('#sn-t'), b: box.querySelector('#sn-b'), e: box.querySelector('#sn-e'), h: box.querySelector('#sn-h'), l: box.querySelector('#sn-l'), k: box.querySelector('#sn-k'), x: box.querySelector('#sn-x') };
     els.x.onclick = onContinue;
-    box.addEventListener('keydown', function (ev) { if (ev.key === 'Tab') { ev.preventDefault(); (els.x.hidden ? els.c : els.x).focus(); } });
+    box.addEventListener('keydown', function (ev) { if (ev.key === 'Tab') { ev.preventDefault(); (mode === 'updating' ? els.c : els.x).focus(); } });
     document.documentElement.appendChild(box);
+    lock = [document.documentElement.style.overflow, document.body ? document.body.style.overflow : ''];
+    document.documentElement.style.overflow = 'hidden'; if (document.body) document.body.style.overflow = 'hidden';   // the page behind cannot scroll
+    var stop = function (ev) { if (!els.c.contains(ev.target)) ev.preventDefault(); };
+    box.addEventListener('wheel', stop, { passive: false }); box.addEventListener('touchmove', stop, { passive: false });
     if (document.body) { document.body.setAttribute('inert', ''); document.body.setAttribute('aria-hidden', 'true'); }
   }
   function fmtEnd(n) {
@@ -100,15 +106,16 @@
     while (els.l.firstChild) els.l.removeChild(els.l.firstChild);
     cl.forEach(function (s) { var li = document.createElement('li'); li.textContent = s; els.l.appendChild(li); });
     els.k.textContent = savedAny && mode !== 'away' ? tx('kept') : '';
-    els.x.hidden = mode === 'updating'; els.x.textContent = tx('btn');
+    els.x.style.display = mode === 'updating' ? 'none' : '';              // (the hidden attribute loses against page CSS)
+    els.x.textContent = tx('btn');
     paintEta();
   }
   function show(m) {
     build(); var first = mode === null; mode = m; paint();
     clearInterval(etaTimer); if (m === 'updating') etaTimer = setInterval(paintEta, 1000);
-    if (first || !els.c.contains(document.activeElement)) (els.x.hidden ? els.c : els.x).focus();
+    if (first || !els.c.contains(document.activeElement)) (m === 'updating' ? els.c : els.x).focus();
   }
-  function hide() { clearInterval(etaTimer); if (box) { box.remove(); box = null; } mode = null; if (document.body) { document.body.removeAttribute('inert'); document.body.removeAttribute('aria-hidden'); } }
+  function hide() { clearInterval(etaTimer); if (box) { box.remove(); box = null; if (lock) { document.documentElement.style.overflow = lock[0]; if (document.body) document.body.style.overflow = lock[1]; lock = null; } } mode = null; if (document.body) { document.body.removeAttribute('inert'); document.body.removeAttribute('aria-hidden'); } }
   window.addEventListener('sanctuaire-lang', function () { paint(); });
 
   // ---------- update logic ----------
@@ -119,23 +126,32 @@
     return Promise.all(urls.map(function (u) { return fetch(u, { cache: 'reload' }).catch(function () { return 0; }); }));
   }
   function reload() { if (SN._reload) SN._reload(); else location.reload(); }
+  function readReturn() {                              // where the person was when the update started (kept for 3 hours, same site only)
+    try { var r = JSON.parse(localStorage.getItem('snotice-return') || 'null'); localStorage.removeItem('snotice-return');
+      if (r && r.u && Date.now() - r.at < 3 * 36e5 && r.u.indexOf(new URL(ROOT).pathname) === 0) return r.u; } catch (e) { /* ignore */ } return null;
+  }
+  function here() { return location.pathname + location.search + location.hash; }
+  function go(u) { if (SN._go) SN._go(u); else location.assign(location.origin + u); }
   function onContinue() {
-    var n = cur; sset(localStorage, 'snotice-seen', n.id);
-    if (stale(n)) { els.x.disabled = true; els.x.textContent = tx('busy'); sset(localStorage, 'snotice-restore', '1'); refreshFiles(n).then(reload, reload); }
-    else hide();
+    var n = cur; if (!n || (mode !== 'done' && mode !== 'away')) return;           // never while the update is still running
+    sset(localStorage, seenKey(), n.id);
+    var back = readReturn(), away = back && back !== here();
+    if (stale(n)) { els.x.disabled = true; els.x.textContent = tx('busy'); sset(localStorage, 'snotice-restore', '1'); refreshFiles(n).then(function () { away ? go(back) : reload(); }, reload); }
+    else { hide(); if (away) { sset(localStorage, 'snotice-restore', '1'); go(back); } }
   }
   function apply(n, first) {
     if (!n || !n.id || ['idle', 'updating', 'done'].indexOf(n.state) < 0) return false;
+    if (!who()) return false;                                                     // not signed in: no pop-up, the login stays usable
     cur = n;
     if (n.state === 'updating') {
       if (skip) return false;
-      if (mode !== 'updating') { savedAny = saveDrafts(); sset(localStorage, 'snotice-restore', '1'); }
+      if (mode !== 'updating') { savedAny = saveDrafts(); sset(localStorage, 'snotice-restore', '1'); sset(localStorage, 'snotice-return', JSON.stringify({ u: here(), at: Date.now() })); }
       show('updating'); if (first) { try { window.stop(); } catch (e) { /* ignore */ } }
       return true;
     }
     if (n.state === 'done') {
       if (mode === 'updating') { show('done'); return true; }                    // same pop-up, changed in place
-      if (skip || sget(localStorage, 'snotice-seen') === n.id) return false;
+      if (skip || sget(localStorage, seenKey()) === n.id) return false;
       if (!mode) show(stale(n) ? 'done' : 'away');
       return true;
     }
@@ -151,7 +167,7 @@
 
   // ---------- start ----------
   var root = document.documentElement, gated = false;
-  if (!skip) { root.style.visibility = 'hidden'; gated = true; }
+  if (!skip && who()) { root.style.visibility = 'hidden'; gated = true; }
   function ungate() { if (gated) { gated = false; root.style.visibility = ''; } }
   setTimeout(ungate, GATE);
   check(true).then(ungate);
@@ -159,6 +175,6 @@
   function now() { if (!document.hidden) check(false); }
   document.addEventListener('visibilitychange', now); window.addEventListener('focus', now); window.addEventListener('online', now);
 
-  var SN = window.SNotice = { registerDraft: function (n, h) { hooks[n] = h; }, pageReady: pageReady, _check: check, _reload: null };
+  var SN = window.SNotice = { registerDraft: function (n, h) { hooks[n] = h; }, pageReady: pageReady, recheck: function () { return check(false); }, _check: check, _reload: null, _go: null };
   void timer;
 })();

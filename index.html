@@ -533,6 +533,7 @@ function start() {
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   if (!bar) bar = SBar.mount({ base: '', lang, onLang: (x) => { lang = x; sess.lang = x; put(HUB, sess); chrome(); route(); } });
   chrome(); route();
+  if (window.SNotice) SNotice.recheck();                // show the update pop-up now that we know who is signed in
 }
 $('go').onclick = doLogin;
 $('pin').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
