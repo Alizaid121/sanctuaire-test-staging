@@ -62,7 +62,7 @@
   }
 
   // ---------- pop-up ----------
-  var box = null, els = {}, mode = null, cur = null, etaTimer = null, savedAny = false, lock = null;
+  var box = null, els = {}, mode = null, cur = null, etaTimer = null, savedAny = false, lock = null, refreshing = false;
   var CSS = '#snotice{visibility:visible;position:fixed;inset:0;z-index:100001;display:grid;place-items:center;padding:20px;background:rgba(20,30,25,.86);color:#1F2A24;font:17px/1.5 Inter,system-ui,sans-serif}' +
     '@supports ((backdrop-filter:blur(8px)) or (-webkit-backdrop-filter:blur(8px))){#snotice{background:rgba(20,30,25,.5);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}}' +
     '#snotice .c{background:#FFFBF3;border-radius:20px;max-width:440px;width:100%;max-height:88vh;overflow:auto;padding:24px;box-shadow:0 12px 40px #0006;animation:snin .2s ease-out;outline:0}' +
@@ -80,11 +80,16 @@
     els.x.onclick = onContinue;
     box.addEventListener('keydown', function (ev) { if (ev.key === 'Tab') { ev.preventDefault(); (mode === 'updating' ? els.c : els.x).focus(); } });
     document.documentElement.appendChild(box);
-    lock = [document.documentElement.style.overflow, document.body ? document.body.style.overflow : ''];
-    document.documentElement.style.overflow = 'hidden'; if (document.body) document.body.style.overflow = 'hidden';   // the page behind cannot scroll
+    lock = [document.documentElement.style.overflow, ''];
+    document.documentElement.style.overflow = 'hidden';                                                      // the page behind cannot scroll
     var stop = function (ev) { if (!els.c.contains(ev.target)) ev.preventDefault(); };
     box.addEventListener('wheel', stop, { passive: false }); box.addEventListener('touchmove', stop, { passive: false });
-    if (document.body) { document.body.setAttribute('inert', ''); document.body.setAttribute('aria-hidden', 'true'); }
+    bodyLock(); document.addEventListener('DOMContentLoaded', bodyLock);
+  }
+  function bodyLock() {
+    if (!box || !document.body || document.body.hasAttribute('inert')) return;
+    if (lock) lock[1] = document.body.style.overflow;
+    document.body.style.overflow = 'hidden'; document.body.setAttribute('inert', ''); document.body.setAttribute('aria-hidden', 'true');
   }
   function fmtEnd(n) {
     var d = new Date(n.estimatedEndAt); if (isNaN(d)) return null;
@@ -107,7 +112,7 @@
     cl.forEach(function (s) { var li = document.createElement('li'); li.textContent = s; els.l.appendChild(li); });
     els.k.textContent = savedAny && mode !== 'away' ? tx('kept') : '';
     els.x.style.display = mode === 'updating' ? 'none' : '';              // (the hidden attribute loses against page CSS)
-    els.x.textContent = tx('btn');
+    els.x.textContent = refreshing ? tx('busy') : tx('btn'); els.x.disabled = refreshing;
     paintEta();
   }
   function show(m) {
@@ -132,6 +137,14 @@
   }
   function here() { return location.pathname + location.search + location.hash; }
   function go(u) { if (SN._go) SN._go(u); else location.assign(location.origin + u); }
+  function autoRefresh(n) {                            // DONE and this page runs old code: refresh the files and reload, behind the pop-up
+    if (refreshing) return;
+    var tk = 'snotice-tries:' + n.id, tries = parseInt(sget(sessionStorage, tk) || '0', 10);
+    if (tries >= 2) return;                            // loop guard: after two tries the person can still press Continue to refresh by hand
+    refreshing = true; sset(sessionStorage, tk, String(tries + 1)); paint();
+    sset(localStorage, 'snotice-restore', '1'); sset(sessionStorage, 'snotice-pending', JSON.stringify(n));   // the pop-up is rebuilt at once after the reload
+    refreshFiles(n).then(reload, reload);
+  }
   function onContinue() {
     var n = cur; if (!n || (mode !== 'done' && mode !== 'away')) return;           // never while the update is still running
     sset(localStorage, seenKey(), n.id);
@@ -150,9 +163,10 @@
       return true;
     }
     if (n.state === 'done') {
-      if (mode === 'updating') { show('done'); return true; }                    // same pop-up, changed in place
+      if (mode === 'updating') { show('done'); if (stale(n)) autoRefresh(n); return true; }   // same pop-up, changed in place
       if (skip || sget(localStorage, seenKey()) === n.id) return false;
       if (!mode) show(stale(n) ? 'done' : 'away');
+      if (stale(n)) autoRefresh(n);
       return true;
     }
     if (mode === 'updating') hide();                                             // idle: released
@@ -166,8 +180,13 @@
   }
 
   // ---------- start ----------
-  var root = document.documentElement, gated = false;
-  if (!skip && who()) { root.style.visibility = 'hidden'; gated = true; }
+  var root = document.documentElement, gated = false, instant = false;
+  var pend = sget(sessionStorage, 'snotice-pending');   // we just reloaded to finish an update: show the pop-up from the first paint
+  if (pend) {
+    try { sessionStorage.removeItem('snotice-pending'); } catch (e) { /* ignore */ }
+    try { var pn = JSON.parse(pend); if (!skip && who() && pn && pn.id && sget(localStorage, seenKey()) !== pn.id) { cur = pn; show('done'); instant = true; } } catch (e) { /* ignore */ }
+  }
+  if (!skip && who() && !instant) { root.style.visibility = 'hidden'; gated = true; }
   function ungate() { if (gated) { gated = false; root.style.visibility = ''; } }
   setTimeout(ungate, GATE);
   check(true).then(ungate);
