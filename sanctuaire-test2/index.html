@@ -89,6 +89,7 @@
 <script src="../env.js"></script>
 <script src="../version.js"></script>
 <script src="../notice.js"></script>
+<script src="../ui-kit.js"></script>
 <script src="../hub-bar.js"></script>
 <main>
 
@@ -311,10 +312,50 @@ async function checkConnection() {
   catch (e) { const m = $('loginMsg'); m.className = 'banner err'; m.textContent = e.status === 404 ? `${I18N.en.connNoFn}  /  ${I18N.fr.connNoFn}` : `${I18N.en.connFail}  /  ${I18N.fr.connFail}`; }
 }
 
+/* ---------- unsaved changes (v2.2.0) ---------- */
+// A form is "changed" when it differs from what it showed when it was opened.
+const formDirty = (f) => !!f && ((f.fr || '') !== ((f.init && f.init.fr) || '') || (f.reason || '') !== ((f.init && f.init.reason) || '') || (f.note || '').trim() !== '');
+const dirtyForms = () => Object.entries(ui.forms).filter(([, f]) => formDirty(f));
+const hasUnsaved = () => dirtyForms().length > 0;
+let t2ready = false;
+function validateForm(s, f) {
+  const fr = (f.fr || '').trim(), note = (f.note || '').trim();
+  if (f.mode === 'suggest' || f.mode === 'counter') {
+    if (!fr) return t('needText');
+    if (f.mode === 'suggest' && fr === s.fr) return t('sameText');
+    const miss = s.ph.filter((p) => !fr.includes(`{${p}}`));
+    if (miss.length) return t('phMissing', miss.map((p) => `{${p}}`).join(', '));
+  }
+  if ((f.mode === 'counter' || f.mode === 'reject') && !note) return t('needNote');
+  return '';
+}
+async function sendForm(s, f) {
+  const action = { suggest: 'suggest', counter: 'counter', reject: 'admin_reject' }[f.mode];
+  const fr = (f.fr || '').trim(), note = (f.note || '').trim();
+  return act(s.id, action, { fr: f.mode === 'reject' ? null : fr, reason: f.reason || null, note: note || null });
+}
+// sends every changed form (what "Save and leave" does); true when all were sent
+async function saveAll() {
+  let ok = true;
+  for (const [sid, f] of dirtyForms()) {
+    const s = STR[sid];
+    if (!s || validateForm(s, f)) { ok = false; continue; }
+    await sendForm(s, f);
+    if (ui.forms[sid]) ok = false;           // act() removes the form when the server accepted it
+  }
+  return ok;
+}
+const DISC = { en: { title: 'Discard your changes?', text: 'What you wrote in this form will be lost.', ok: 'Discard', cancel: 'Keep editing' }, fr: { title: 'Abandonner tes modifications ?', text: 'Ce que tu as écrit dans ce formulaire sera perdu.', ok: 'Abandonner', cancel: 'Continuer à modifier' } };
+
 /* ---------- entering the sheet ---------- */
-// unsent work that must survive an update (see the update notice spec)
+// unsent work that must survive an update or a closed app (see the update notice spec).
+// It throws while the page is not ready, so that a draft saved earlier is never overwritten with an empty one.
 if (window.SNotice) SNotice.registerDraft('test2', {
-  collect: () => ({ text: ui.forms, ui: { openCats: [...ui.openCats], fStatus: ui.fStatus, fCat: ui.fCat, q: ui.q } }),
+  collect: () => {
+    if (!session || !t2ready) throw new Error('not ready');
+    const d = dirtyForms();
+    return { text: Object.fromEntries(d), dirty: d.length > 0, ui: { openCats: [...ui.openCats], fStatus: ui.fStatus, fCat: ui.fCat, q: ui.q } };
+  },
   restore: (d) => {
     ui.forms = d.text || {}; (d.ui.openCats || []).forEach((c) => ui.openCats.add(c));
     ui.fStatus = d.ui.fStatus || 'all'; ui.fCat = d.ui.fCat || 'all'; ui.q = d.ui.q || '';
@@ -327,8 +368,12 @@ async function enter() {
   $('loginCard').classList.add('hidden'); $('app').classList.remove('hidden');
   buildChrome();
   await refresh(true);
+  t2ready = true;
   startPoll();
+  SUI.guard({ isDirty: hasUnsaved, saveAll, discard: () => { ui.forms = {}; renderAll(); } });
   if (window.SNotice) SNotice.pageReady('test2');   // the engine may be missing while an update is being uploaded
+  SUI.autosave('test2');                            // "Save the changes" was chosen after the app had been closed
+  SUI.recover('test2');                             // unsaved text from a closed app: ask what to do
 }
 function buildChrome() {
   document.title = `Sanctuaire · ${t('title')}`;
@@ -467,42 +512,43 @@ function actionsFor(s, st, it) {
   }
   return out;
 }
-function openForm(sid, f) { ui.forms[sid] = f; renderAll(); const n = document.getElementById('i-' + sid) && document.getElementById('i-' + sid).querySelector('textarea'); if (n) n.focus(); }
+function openForm(sid, f) { f.init = { fr: f.fr, reason: f.reason, note: f.note }; ui.forms[sid] = f; renderAll(); const n = document.getElementById('i-' + sid) && document.getElementById('i-' + sid).querySelector('textarea'); if (n) n.focus(); }
 function closeForm(sid) { delete ui.forms[sid]; renderAll(); }
 
 function renderForm(s, f) {
   const form = el('div', { class: 'form' });
   const err = el('div', { class: 'banner err hidden', role: 'alert' });
   let frInput = null, reasonSel = null, noteInput;
+  let refreshSend = () => {};
   if (f.mode !== 'reject') {
     const cnt = el('div', { class: 'count' });
     const upd = () => { const n = [...f.fr || ''].length; cnt.textContent = `${n}/${s.max}`; cnt.classList.toggle('over', n > s.max); if (n > s.max) cnt.textContent += ` · ${t('overSpace')}`; };
-    frInput = el('textarea', { id: `fr-${s.id}`, 'aria-label': t('yourFrench'), lang: 'fr', oninput: (e) => { f.fr = e.target.value; upd(); } });
+    frInput = el('textarea', { id: `fr-${s.id}`, 'aria-label': t('yourFrench'), lang: 'fr', oninput: (e) => { f.fr = e.target.value; upd(); refreshSend(); } });
     frInput.value = f.fr || '';
     form.append(el('label', { for: `fr-${s.id}`, text: t('yourFrench') }), frInput, cnt, ...(phNote(s) ? [phNote(s)] : []));
-    reasonSel = el('select', { id: `rs-${s.id}`, onchange: (e) => { f.reason = e.target.value; } }, el('option', { value: '', text: t('reasonNone') }), ['long', 'unnatural', 'meaning', 'register', 'grammar', 'gender', 'other'].map((k) => el('option', { value: k, text: t('r_' + k) })));
+    reasonSel = el('select', { id: `rs-${s.id}`, onchange: (e) => { f.reason = e.target.value; refreshSend(); } }, el('option', { value: '', text: t('reasonNone') }), ['long', 'unnatural', 'meaning', 'register', 'grammar', 'gender', 'other'].map((k) => el('option', { value: k, text: t('r_' + k) })));
     reasonSel.value = f.reason || '';
     form.append(el('label', { for: `rs-${s.id}`, text: t('reason') }), reasonSel);
     upd();
   }
   const noteLabel = f.mode === 'suggest' ? t('noteOpt') : t('noteReq');
-  noteInput = el('textarea', { id: `nt-${s.id}`, class: 'short', oninput: (e) => { f.note = e.target.value; } });
+  noteInput = el('textarea', { id: `nt-${s.id}`, class: 'short', oninput: (e) => { f.note = e.target.value; refreshSend(); } });
   noteInput.value = f.note || '';
   form.append(el('label', { for: `nt-${s.id}`, text: f.mode === 'counter' ? t('noteReq') : noteLabel }), noteInput, err);
   const fail = (m) => { err.textContent = m; err.classList.remove('hidden'); };
   const send = el('button', { type: 'button', text: t('send'), onclick: async () => {
-    const fr = (f.fr || '').trim(), note = (f.note || '').trim();
-    if (f.mode === 'suggest' || f.mode === 'counter') {
-      if (!fr) return fail(t('needText'));
-      if (f.mode === 'suggest' && fr === s.fr) return fail(t('sameText'));
-      const miss = s.ph.filter((p) => !fr.includes(`{${p}}`));
-      if (miss.length) return fail(t('phMissing', miss.map((p) => `{${p}}`).join(', ')));
-    }
-    if ((f.mode === 'counter' || f.mode === 'reject') && !note) return fail(t('needNote'));
-    const action = { suggest: 'suggest', counter: 'counter', reject: 'admin_reject' }[f.mode];
-    await act(s.id, action, { fr: f.mode === 'reject' ? null : fr, reason: f.reason || null, note: note || null });
+    const m = validateForm(s, f);
+    if (m) return fail(m);
+    await sendForm(s, f);
   } });
-  form.append(el('div', { class: 'row' }, send, el('button', { type: 'button', class: 'secondary', text: t('cancel'), onclick: () => closeForm(s.id) })));
+  const sv = SUI.save(send);
+  refreshSend = () => sv.set(formDirty(f));
+  refreshSend();
+  const cancelBtn = el('button', { type: 'button', class: 'secondary', text: t('cancel'), onclick: async () => {
+    if (formDirty(f)) { const d = DISC[LANG] || DISC.en; if (!(await SUI.confirm({ title: d.title, text: d.text, ok: d.ok, cancel: d.cancel, danger: true }))) return; }
+    closeForm(s.id);
+  } });
+  form.append(el('div', { class: 'row' }, send, cancelBtn));
   return form;
 }
 
