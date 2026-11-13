@@ -71,12 +71,12 @@ function capPdf(tools, data, role, version, lang) {
 // ---- entry point ----
 // opts: { test: '1'|'2'|'cap', lang, version, data }  (data = what the server returned for this report)
 export async function makeReport(opts) {
-  const { test, lang, version, data } = opts, tools = await pdfTools(), day = new Date().toISOString().slice(0, 10);
+  const { test, lang, version, data, model } = opts, tools = await pdfTools(), day = new Date().toISOString().slice(0, 10);
   let doc, name;
   if (test === '1') {
     const mod = await import('./sanctuaire-test1/report.js');
-    doc = mod.buildReport(tools.JsPDF, { regular: tools.regular, bold: tools.bold }, { categories: data.categories, items: data.items, exportedAt: new Date().toISOString(), exporterRole: 'admin' }, { lang });
-    name = `sanctuaire-test1-v${version}-${day}-${lang}.pdf`;
+    doc = mod.buildReport(tools.JsPDF, { regular: tools.regular, bold: tools.bold }, { categories: data.categories, items: data.items, exportedAt: new Date().toISOString(), exporterRole: 'admin' }, { lang, model });
+    name = `sanctuaire-test1${model ? '-version' + model : ''}-${day}-${lang}.pdf`;
   } else if (test === '2') {
     if (!window.buildT2Report) await loadScript('sanctuaire-test2/report.js');
     if (!(window.T2 && T2.STRINGS)) await loadScript('sanctuaire-test2/strings.js');

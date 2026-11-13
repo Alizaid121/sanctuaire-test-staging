@@ -8,6 +8,8 @@
 <script src="env.js"></script>
 <script src="version.js"></script>
 <script src="notice.js"></script>
+<script src="ui-kit.js"></script>
+<script src="guide-test1.js"></script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -147,7 +149,7 @@ const I18N = {
     language: 'Language', sessions: 'Test sign-ins', on: 'Connected', off: 'Not connected: that test will ask for your PIN',
     adminNote: 'As admin, you download the PDF reports below.',
     reportsTitle: 'Reports (PDF)', reportsIntro: 'Download the results of each test, in English or French. After a core update, the old version’s report stays here next to the new one.',
-    current: 'Current', ver: (n) => `Version ${n}`, saved: 'saved', loadingR: 'Loading reports…', rFail: 'Reports are not available. Run database/4-reports-setup.sql in Supabase, then reload.',
+    current: 'Current', t1v2: 'Version 2 · Bergamot + language model', t1v1: 'Version 1 · Bergamot only', ver: (n) => `Version ${n}`, saved: 'saved', loadingR: 'Loading reports…', rFail: 'Reports are not available. Run database/4-reports-setup.sql in Supabase, then reload.',
     rBusy: 'Creating the PDF…', rDone: (n) => `Downloaded ${n}`, rErr: 'The PDF could not be created. Try again.', noArch: 'No earlier versions yet.',
     pEn: 'English speaker', pFr: 'French speaker', pdfEn: 'PDF · English', pdfFr: 'PDF · Français',
     expiry: 'The sign-in lasts about 11 hours on this phone.',
@@ -185,7 +187,7 @@ const I18N = {
     language: 'Langue', sessions: 'Connexions aux tests', on: 'Connecté', off: 'Non connecté : ce test te demandera ton code PIN',
     adminNote: 'En tant qu’admin, tu télécharges les rapports PDF ci-dessous.',
     reportsTitle: 'Rapports (PDF)', reportsIntro: 'Télécharge les résultats de chaque test, en anglais ou en français. Après une mise à jour majeure, le rapport de l’ancienne version reste ici à côté du nouveau.',
-    current: 'Actuelle', ver: (n) => `Version ${n}`, saved: 'enregistrée', loadingR: 'Chargement des rapports…', rFail: 'Les rapports ne sont pas disponibles. Lance database/4-reports-setup.sql dans Supabase, puis recharge.',
+    current: 'Actuelle', t1v2: 'Version 2 · Bergamot + modèle de langage', t1v1: 'Version 1 · Bergamot seul', ver: (n) => `Version ${n}`, saved: 'enregistrée', loadingR: 'Chargement des rapports…', rFail: 'Les rapports ne sont pas disponibles. Lance database/4-reports-setup.sql dans Supabase, puis recharge.',
     rBusy: 'Création du PDF…', rDone: (n) => `Téléchargé : ${n}`, rErr: 'Le PDF n’a pas pu être créé. Réessaie.', noArch: 'Pas encore d’anciennes versions.',
     pEn: 'Anglophone', pFr: 'Francophone', pdfEn: 'PDF · English', pdfFr: 'PDF · Français',
     expiry: 'La connexion dure environ 11 heures sur ce téléphone.',
@@ -295,6 +297,8 @@ const GUIDES = {
         'Tu peux t’arrêter et reprendre plus tard. Ce qui est fait reste enregistré.'] }
   }
 };
+// the Test 1 guide has one source (guide-test1.js), shared with the guide that must be read once inside Test 1
+if (window.SGUIDE_T1) GUIDES['1'] = window.SGUIDE_T1;
 
 // ---- server ----
 async function rpc(fn, args) {
@@ -358,6 +362,7 @@ async function doLogin() {
   finally { $('go').disabled = false; $('pin').value = ''; }
 }
 async function signOut() {
+  if (window.SUI && !(await SUI.confirmSignOut())) return;   // unsaved text in Test 1 or 2: ask first
   const s = sess || get(HUB);
   try { if (s && s.tok1) await rpc('t1_logout', { p_token: s.tok1 }); } catch (e) { /* ignore */ }
   try { if (s && s.tok2) await rpc('t2_logout', { p_token: s.tok2 }); } catch (e) { /* ignore */ }
@@ -417,7 +422,7 @@ const t2strings = () => window.T2 && T2.STRINGS ? Promise.resolve() : new Promis
 async function prog1() {
   if (!sess.tok1) { PROG['1'] = { err: 'conn' }; return; }
   try {
-    const r = await rpc('t1_get_sheet', { p_token: sess.tok1 });
+    const r = await rpc('t1v2_get_sheet', { p_token: sess.tok1 });   // progress follows Test 1 version 2 only
     if (!r || !r.ok) { PROG['1'] = { err: r && r.error === 'auth' ? 'conn' : 'x' }; return; }
     const per = r.categories.length * 3, by = {};
     ['admin', 'partner'].forEach((a) => { by[a] = { d: r.items.filter((i) => i.author === a && i.status === 'done').length, t: per }; });
@@ -473,6 +478,10 @@ const rbtns = (a) => `<span class="rb"><button type="button" class="alt" ${a} da
 const rrow = (label, a) => `<div class="rrow"><span>${label}</span>${rbtns(a)}</div>`;
 function testRows(id, ver, arch, when) {
   const l = L(), head = arch ? `${l.ver(ver)} · ${l.saved} ${when}` : `${l.current} · ${l.ver(ver)}`, base = `data-test="${id}" data-ver="${ver}" data-arch="${arch || ''}"`;
+  if (id === '1' && !arch) {   // Test 1 has two independent versions: one report each
+    const b = (tv) => `data-test="1" data-ver="${ver}" data-arch="" data-tv="${tv}"`;
+    return `<div class="rrow"><b>${esc(head)}</b></div>` + rrow(l.t1v2, b('2')) + rrow(l.t1v1, b('1'));
+  }
   if (id !== 'cap') return rrow(esc(head), base);
   return `<div class="rrow"><b>${esc(head)}</b></div>` + ['admin', 'partner'].map((r) => rrow(r === 'admin' ? l.pEn : l.pFr, `${base} data-role="${r}"`)).join('');
 }
@@ -500,14 +509,14 @@ async function doExport(b) {
       data = r.snapshot;
       if (d.test === 'cap') { const row = (data.people || []).find((x) => x.role === d.role); data = { role: d.role, data: row ? row.data : {} }; }
     } else if (d.test === '1') {
-      const r = await rpc('t1_get_sheet', { p_token: sess.tok1 }); if (!r.ok) throw new Error('t1'); data = { categories: r.categories, items: r.items };
+      const r = await rpc(d.tv === '1' ? 't1_get_sheet' : 't1v2_get_sheet', { p_token: sess.tok1 }); if (!r.ok) throw new Error('t1'); data = { categories: r.categories, items: r.items };
     } else if (d.test === '2') {
       const r = await rpc('t2_get_sheet', { p_token: sess.tok2 }); if (!r.ok) throw new Error('t2'); data = { items: r.items, events: r.events };
     } else {
       const r = await rpc('hub_cap_get', { p_token: sess.tok2, p_role: d.role }); if (!r.ok) throw new Error('cap'); data = { role: d.role, data: r.data };
     }
     const mod = await import('./reports.js');
-    const name = await mod.makeReport({ test: d.test, lang: d.lang, version: d.ver, data });
+    const name = await mod.makeReport({ test: d.test, lang: d.lang, version: d.ver, model: d.tv || '', data });
     msg.className = 'ok'; msg.textContent = l.rDone(name);
   } catch (e) { console.error(e); msg.className = 'no'; msg.textContent = l.rErr; }
   finally { b.disabled = false; }
@@ -534,6 +543,7 @@ function start() {
   if (!bar) bar = SBar.mount({ base: '', lang, onLang: (x) => { lang = x; sess.lang = x; put(HUB, sess); chrome(); route(); } });
   chrome(); route();
   if (window.SNotice) SNotice.recheck();                // show the update pop-up now that we know who is signed in
+  if (window.SUI) SUI.recover();                        // unsaved text kept when the app was closed: ask what to do (after the update pop-up)
 }
 $('go').onclick = doLogin;
 $('pin').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });

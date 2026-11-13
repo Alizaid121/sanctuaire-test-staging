@@ -80,3 +80,10 @@ Page load order: `config.js`, `env.js`, `version.js`, `notice.js`, `hub-bar.js` 
 
 ## 9. Rules for every update
 Core changes (translator model, provider, tool) start a new test version; style, fixes and wording do not. Test 1 and 2 data are readable text: keep exports private and delete the test database when testing ends.
+
+## Pop-ups, save buttons and unsaved changes (v2.2.0)
+
+- Never use the browser's own `confirm()`, `alert()` or `prompt()`. Use `SUI.confirm({ title, text, ok, cancel, danger })` or `SUI.dialog(...)` from `ui-kit.js`: same look on every page, in the person's language.
+- A button that saves or sends is made with `SUI.save(button)`. It is **grey** and not pressable when there is nothing to save (or after saving) and **green** only while there are changes. A page decides "changes" by comparing with what was last saved, not by whether a key was pressed.
+- Every page with editable fields registers `SUI.guard({ isDirty, saveAll, discard })`. Leaving by the back button, a link or the bottom bar with unsaved changes asks: Save and leave / Stay on this page / Leave without saving.
+- A page's draft hook (`SNotice.registerDraft`) returns `dirty: true` only when there are real unsaved changes and **throws while the page is not ready**, so a saved draft is never overwritten with an empty one. After a closed app, `SUI.recover(page)` asks once (after sign-in, after any update pop-up): Save the changes / Open the page / Continue without saving.

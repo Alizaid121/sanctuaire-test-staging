@@ -1,1 +1,1 @@
-window.SANCTUAIRE_VERSION = '2.1.1';
+window.SANCTUAIRE_VERSION = '2.2.0';
