@@ -15,6 +15,9 @@ const TEXT = {
     title: 'Sanctuaire Test 1',
     subtitle: 'On-device translation: results report',
     exported: (d) => `Exported ${d}`,
+    ver2: 'Version 2 · Bergamot + language model', ver1: 'Version 1 · Bergamot only',
+    draft: 'Bergamot draft', polish: { improved: 'Language model: fixed the draft', unchanged: 'Language model: no change needed', failed: 'Language model: answer not usable, draft kept', skipped: 'Language model: skipped, draft kept' },
+    polishSummary: (c, ms) => `Language model step (translation direction only): fixed ${c.improved}, no change ${c.unchanged}, not usable ${c.failed}, skipped ${c.skipped}.${ms ? ` Median model time ${ms}.` : ''} Times in the table are Bergamot's only.`,
     by: (r) => `by ${r}`,
     whoBy: { admin: 'the English speaker', partner: 'the French speaker' },
     sectionSummary: 'Summary',
@@ -51,6 +54,9 @@ const TEXT = {
     title: 'Sanctuaire Test 1',
     subtitle: 'Traduction sur le téléphone : rapport des résultats',
     exported: (d) => `Exporté le ${d}`,
+    ver2: 'Version 2 · Bergamot + modèle de langage', ver1: 'Version 1 · Bergamot seul',
+    draft: 'Brouillon Bergamot', polish: { improved: 'Modèle de langage : brouillon corrigé', unchanged: 'Modèle de langage : rien à changer', failed: 'Modèle de langage : réponse inutilisable, brouillon gardé', skipped: 'Modèle de langage : étape passée, brouillon gardé' },
+    polishSummary: (c, ms) => `Étape du modèle de langage (sens de la traduction seulement) : corrigé ${c.improved}, rien à changer ${c.unchanged}, inutilisable ${c.failed}, passé ${c.skipped}.${ms ? ` Temps médian du modèle ${ms}.` : ''} Les temps du tableau sont ceux de Bergamot seul.`,
     by: (r) => `par ${r}`,
     whoBy: { admin: 'la personne anglophone', partner: 'la personne francophone' },
     sectionSummary: 'Résumé',
@@ -93,12 +99,13 @@ const pct = (n, t) => (t ? `${Math.round((n / t) * 100)}%` : '–');
 export function buildReport(JsPDF, fonts, data, opts = {}) {
   const lang = opts.lang === 'fr' ? 'fr' : 'en';
   const T = TEXT[lang];
+  const sub = T.subtitle + (opts.model === '2' || opts.model === '1' ? ' · ' + T['ver' + opts.model] : '');
   const doc = new JsPDF({ unit: 'mm', format: 'a4', compress: true });
   doc.addFileToVFS('DejaVuSans.ttf', fonts.regular);
   doc.addFont('DejaVuSans.ttf', 'DejaVu', 'normal');
   doc.addFileToVFS('DejaVuSans-Bold.ttf', fonts.bold);
   doc.addFont('DejaVuSans-Bold.ttf', 'DejaVu', 'bold');
-  doc.setProperties({ title: `${T.title}: ${T.subtitle}`, subject: T.subtitle, author: 'Sanctuaire Test 1', creator: 'Sanctuaire Test 1' });
+  doc.setProperties({ title: `${T.title}: ${sub}`, subject: sub, author: 'Sanctuaire Test 1', creator: 'Sanctuaire Test 1' });
 
   const W = PAGE.w - MARGIN.l - MARGIN.r;
   const bottom = PAGE.h - MARGIN.b;
@@ -150,7 +157,7 @@ export function buildReport(JsPDF, fonts, data, opts = {}) {
   doc.text(T.title, MARGIN.l, y, { baseline: 'top' });
   y += lineH(22);
   setFont('normal', 12, C.ink);
-  doc.text(T.subtitle, MARGIN.l, y, { baseline: 'top' });
+  doc.text(sub, MARGIN.l, y, { baseline: 'top' });
   y += lineH(12) + 1;
   setFont('normal', 9, C.muted);
   const exportedAt = new Date(data.exportedAt || Date.now());
@@ -219,6 +226,12 @@ export function buildReport(JsPDF, fonts, data, opts = {}) {
   rule();
   y += 1.5;
   para(T.dirCaption, { size: 7.5, color: C.muted, gap: 2 });
+  if (opts.model === '2') {
+    const c = { improved: 0, unchanged: 0, failed: 0, skipped: 0 };
+    for (const i of dirItems.admin.concat(dirItems.partner)) if (i.polish_out && c[i.polish_out] !== undefined) c[i.polish_out]++;
+    const pm = items.map((i) => i.ms_polish).filter((x) => Number.isFinite(x));
+    para(T.polishSummary(c, pm.length ? T.ms(median(pm)) : ''), { size: 8, color: C.muted, gap: 2 });
+  }
 
   // ---------- needs attention ----------
   heading(T.sectionAttention);
@@ -300,7 +313,12 @@ export function buildReport(JsPDF, fonts, data, opts = {}) {
     if (i.author_note) add(T.note, i.author_note, { color: C.muted });
     if (i.translation) {
       add(T.translation(T.langName[dstLang[a]]), i.translation);
+      if (i.polish_out) {
+        if (i.draft_translation && i.draft_translation !== i.translation) add(T.draft, i.draft_translation, { color: C.muted });
+        add(T.polish[i.polish_out] || '', ' ', { color: C.muted });
+      }
       add(T.back(T.langName[srcLang[a]]), i.back_translation || '');
+      if (i.polish_back) add(T.polish[i.polish_back] || '', ' ', { color: C.muted });
     } else {
       add(T.translation(T.langName[dstLang[a]]), T.notTested, { color: C.muted });
     }

@@ -78,6 +78,11 @@
   .file { font-size: 0.85rem; }
   .file progress { width: 100%; height: 0.5rem; }
   details.plain > summary { cursor: pointer; font-weight: 600; min-height: 2.5rem; display: flex; align-items: center; }
+  .vsel button { min-height: 3.4rem; font-size: 0.95rem; }
+  .vsel button[aria-pressed="true"] { border-color: var(--good); background: #e8f4ee; color: var(--ink); }
+  details.plain ol, details.plain ul, .card ol, .card ul { padding-left: 1.3rem; margin: 0.3rem 0; }
+  .card li { margin: 0.25rem 0; }
+  progress { height: 0.6rem; margin-top: 0.4rem; }
 </style>
 <link rel="stylesheet" href="../theme.css">
 </head>
@@ -86,6 +91,8 @@
 <script src="../env.js"></script>
 <script src="../version.js"></script>
 <script src="../notice.js"></script>
+<script src="../ui-kit.js"></script>
+<script src="../guide-test1.js"></script>
 <script src="../hub-bar.js"></script>
 <main>
   <div id="cfg" class="banner err hidden"></div>
@@ -100,6 +107,8 @@
     <div id="login-msg" class="msg" role="status" aria-live="polite"></div>
   </section>
 
+  <div id="view-gate" class="hidden"></div>
+
   <div id="view-main" class="hidden">
     <header class="card">
       <div class="bar">
@@ -112,7 +121,10 @@
       <div class="muted" id="updated" role="status"></div>
     </header>
 
+    <section class="card" id="vpanel"></section>
     <section class="card" id="tpanel"></section>
+    <section class="card" id="lpanel"></section>
+    <section class="card" id="mpanel"></section>
 
     <section class="card">
       <div class="summary" id="summary"></div>
@@ -129,6 +141,7 @@
 <script type="module">
 import { decompress as zstdDecompress } from './vendor/fzstd.mjs';
 import * as store from './modelstore.js';
+import * as llm from './llm.js';
 
 // ---- connection to the shared database (public values; safe to be in this file) ----
 const SUPABASE_URL = SENV.sb;                 // from config.js
@@ -269,6 +282,77 @@ const I18N = {
     authorWho: (a) => (a === 'admin' ? 'anglophone' : 'francophone'),
   },
 };
+// ---------- texts added in v2.2.0 ----------
+const EXTRA = {
+  en: {
+    verTitle: 'Test version', ver2: 'Version 2 · Bergamot + language model', ver1: 'Version 1 · Bergamot only',
+    ver2help: 'The new approach: Bergamot translates, then a small language model on your phone fixes the draft (always "tu", idioms by meaning). Use this version now.',
+    ver1help: 'The first approach, kept as it was. Its sentences, results and progress are separate from version 2.',
+    switchTitle: 'Switch version?', switchText: 'You have changes that are not saved in this version.',
+    switchSave: 'Save and switch', switchStay: 'Stay here', switchDrop: 'Switch without saving',
+    llmTitle: 'Language model on this phone',
+    llmHelp: 'Version 2 uses a small language model (Gemma 3 270M). It runs on your phone, on the processor, and is downloaded once. Nothing you type is sent anywhere.',
+    llmSize: (m) => `Download size: about ${m} MB. Use Wi-Fi.`, llmSizeUnknown: 'The download size is shown when the download starts. Use Wi-Fi.',
+    llmPrepare: 'Download and prepare (one time only)', llmStart: 'Start the language model (no download)', llmPreparing: 'Preparing…',
+    llmDownloading: (a, b) => `Downloading: ${a} of ${b} MB. If the connection drops, it continues from where it stopped.`,
+    llmDownloadingUnknown: (a) => `Downloading: ${a} MB so far. If the connection drops, it continues from where it stopped.`,
+    llmReady: (s, d) => `Ready (${d}). Took ${s} s.`, llmFail: (m) => `The language model could not start: ${m}`, llmNotReady: 'Not prepared yet.',
+    needLlm: 'Prepare the language model first (section above). If it cannot start on your phone, you can still test with Bergamot only.',
+    llmOnlyBergamot: 'The language model could not start, so this test uses Bergamot only (it is marked in the report).',
+    improving: 'Improving the draft…', cancelImprove: 'Skip this step', draftLabel: 'Draft (Bergamot)', improvedLabel: 'Improved text',
+    polish_improved: 'Fixed by the language model', polish_unchanged: 'Language model: no change needed', polish_failed: 'Language model: its answer could not be used, the draft was kept', polish_skipped: 'Language model: skipped, the draft was kept',
+    showDraft: 'Bergamot\'s draft and the language model step',
+    mmTitle: 'Manage stored models', mmEmpty: 'Nothing is stored on this phone yet.', mmBerg: 'Bergamot translation models', mmLlm: 'Language model (Gemma 3 270M)',
+    mmDelete: 'Delete', mmSave: 'Save to a file', mmLoad: 'Load from a file', mmDeleted: 'Deleted.', mmSaved: (n) => `Saved as ${n}.`, mmLoaded: (n) => `Loaded ${n} file(s). Start the model to use it.`,
+    mmDeleteTitle: 'Delete stored model?', mmDeleteText: (n) => `${n} will be removed from this phone. You can download it again or load it from a saved file.`,
+    mmHelp: 'A saved file lets you put a model back without downloading it again, even if the browser cleared its storage. Nothing is deleted unless you press Delete or the phone runs very low on space.',
+    mmPersistYes: 'The browser has agreed to keep this storage.', mmPersistNo: 'The browser has not promised to keep this storage.',
+    mmFail: (m) => `Did not work: ${m}`, mmBusy: 'Working…',
+    gateTitle: 'Before you start', gateLead: 'Test 1 has changed. Please read this guide. You cannot open the test until you have.',
+    gateRead: 'I have read and understood', gateScroll: 'Scroll to the end to unlock this button.', gateSaving: 'Saving…', gateRetry: 'Try again',
+    gatePurpose: 'What this test is', gateSteps: 'How to do it', gateYou: 'For you', gateTips: 'Good to know',
+    confirmReplaceTitle: 'Replace this sentence?', confirmReplaceOk: 'Replace', delTitle: 'Delete this entry?', delOk: 'Delete',
+    resetTitle: 'Reset this version?', resetOk: 'Delete everything', redoTitle: 'Download again?', redoOk: 'Download again',
+    confirmReset: (v) => `Delete ALL entries of version ${v} from the sheet? They stay in the history table. The other version is not touched.`,
+    cancel: 'Cancel', doneCount: (d, n) => `Done: ${d} of ${n} sentences`,
+    error: (c) => ({ auth: 'Your session ended. Please enter your PIN again.', not_allowed: 'This is not allowed for your role.', not_tested: 'This sentence has not been tested yet.', bad_text: 'The sentence is empty or too long (maximum 1000 characters).', bad_rating: 'Choose a rating first.', not_found: 'This entry no longer exists.', bad_value: 'A value was not accepted.' }[c] || `Error: ${c}`),
+  },
+  fr: {
+    verTitle: 'Version du test', ver2: 'Version 2 · Bergamot + modèle de langage', ver1: 'Version 1 · Bergamot seul',
+    ver2help: 'La nouvelle approche : Bergamot traduit, puis un petit modèle de langage sur ton téléphone corrige le brouillon (toujours « tu », expressions traduites par leur sens). Utilise cette version maintenant.',
+    ver1help: 'La première approche, gardée telle quelle. Ses phrases, ses résultats et son avancement sont séparés de la version 2.',
+    switchTitle: 'Changer de version ?', switchText: 'Tu as des modifications non enregistrées dans cette version.',
+    switchSave: 'Enregistrer et changer', switchStay: 'Rester ici', switchDrop: 'Changer sans enregistrer',
+    llmTitle: 'Modèle de langage sur ce téléphone',
+    llmHelp: 'La version 2 utilise un petit modèle de langage (Gemma 3 270M). Il tourne sur ton téléphone, sur le processeur, et se télécharge une seule fois. Rien de ce que tu écris n\'est envoyé ailleurs.',
+    llmSize: (m) => `Taille du téléchargement : environ ${m} Mo. Utilise le Wi-Fi.`, llmSizeUnknown: 'La taille du téléchargement s\'affiche quand il commence. Utilise le Wi-Fi.',
+    llmPrepare: 'Télécharger et préparer (une seule fois)', llmStart: 'Démarrer le modèle de langage (sans téléchargement)', llmPreparing: 'Préparation…',
+    llmDownloading: (a, b) => `Téléchargement : ${a} Mo sur ${b}. Si la connexion coupe, il reprend là où il s\'est arrêté.`,
+    llmDownloadingUnknown: (a) => `Téléchargement : ${a} Mo pour l\'instant. Si la connexion coupe, il reprend là où il s\'est arrêté.`,
+    llmReady: (s, d) => `Prêt (${d}). Durée : ${s} s.`, llmFail: (m) => `Le modèle de langage n\'a pas pu démarrer : ${m}`, llmNotReady: 'Pas encore préparé.',
+    needLlm: 'Prépare d\'abord le modèle de langage (section ci-dessus). S\'il ne démarre pas sur ton téléphone, tu peux quand même tester avec Bergamot seul.',
+    llmOnlyBergamot: 'Le modèle de langage n\'a pas pu démarrer : ce test utilise Bergamot seul (c\'est indiqué dans le rapport).',
+    improving: 'Amélioration du brouillon…', cancelImprove: 'Passer cette étape', draftLabel: 'Brouillon (Bergamot)', improvedLabel: 'Texte amélioré',
+    polish_improved: 'Corrigé par le modèle de langage', polish_unchanged: 'Modèle de langage : rien à changer', polish_failed: 'Modèle de langage : sa réponse n\'a pas pu être utilisée, le brouillon est gardé', polish_skipped: 'Modèle de langage : étape passée, le brouillon est gardé',
+    showDraft: 'Brouillon de Bergamot et étape du modèle de langage',
+    mmTitle: 'Gérer les modèles enregistrés', mmEmpty: 'Rien n\'est encore enregistré sur ce téléphone.', mmBerg: 'Modèles de traduction Bergamot', mmLlm: 'Modèle de langage (Gemma 3 270M)',
+    mmDelete: 'Supprimer', mmSave: 'Enregistrer dans un fichier', mmLoad: 'Charger depuis un fichier', mmDeleted: 'Supprimé.', mmSaved: (n) => `Enregistré sous ${n}.`, mmLoaded: (n) => `${n} fichier(s) chargé(s). Démarre le modèle pour l\'utiliser.`,
+    mmDeleteTitle: 'Supprimer le modèle enregistré ?', mmDeleteText: (n) => `${n} sera supprimé de ce téléphone. Tu pourras le télécharger à nouveau ou le charger depuis un fichier enregistré.`,
+    mmHelp: 'Un fichier enregistré permet de remettre un modèle sans le télécharger à nouveau, même si le navigateur a vidé sa mémoire. Rien n\'est supprimé sauf si tu appuies sur Supprimer ou si le téléphone manque très fort de place.',
+    mmPersistYes: 'Le navigateur a accepté de conserver cet espace.', mmPersistNo: 'Le navigateur n\'a pas promis de conserver cet espace.',
+    mmFail: (m) => `Ça n\'a pas marché : ${m}`, mmBusy: 'En cours…',
+    gateTitle: 'Avant de commencer', gateLead: 'Le Test 1 a changé. Lis ce guide : tu ne peux pas ouvrir le test avant de l\'avoir lu.',
+    gateRead: 'J\'ai lu et compris', gateScroll: 'Fais défiler jusqu\'à la fin pour débloquer ce bouton.', gateSaving: 'Enregistrement…', gateRetry: 'Réessayer',
+    gatePurpose: 'À quoi sert ce test', gateSteps: 'Comment faire', gateYou: 'Pour toi', gateTips: 'Bon à savoir',
+    confirmReplaceTitle: 'Remplacer cette phrase ?', confirmReplaceOk: 'Remplacer', delTitle: 'Supprimer cette entrée ?', delOk: 'Supprimer',
+    resetTitle: 'Réinitialiser cette version ?', resetOk: 'Tout supprimer', redoTitle: 'Télécharger à nouveau ?', redoOk: 'Télécharger à nouveau',
+    confirmReset: (v) => `Supprimer TOUTES les entrées de la version ${v} de la feuille ? Elles restent dans l\'historique. L\'autre version n\'est pas touchée.`,
+    cancel: 'Annuler', doneCount: (d, n) => `Terminé : ${d} phrases sur ${n}`,
+    error: (c) => ({ auth: 'Ta session est terminée. Entre à nouveau ton code.', not_allowed: 'Ce n\'est pas autorisé pour ton rôle.', not_tested: 'Cette phrase n\'a pas encore été testée.', bad_text: 'La phrase est vide ou trop longue (1000 caractères maximum).', bad_rating: 'Choisis d\'abord une note.', not_found: 'Cette entrée n\'existe plus.', bad_value: 'Une valeur n\'a pas été acceptée.' }[c] || `Erreur : ${c}`),
+  },
+};
+Object.assign(I18N.en, EXTRA.en); Object.assign(I18N.fr, EXTRA.fr);
+
 let LANG = 'en';
 const t = (k, ...a) => { const s = I18N[LANG][k] ?? I18N.en[k] ?? k; return typeof s === 'function' ? s(...a) : s; };
 
@@ -305,6 +389,13 @@ const openCats = new Set();
 let filterMode = 'all';
 
 const other = () => (session.role === 'admin' ? 'partner' : 'admin');
+
+// ---------- test version (v2.2.0): version 2 = Bergamot + language model, version 1 = Bergamot only ----------
+const VER_KEY = 'sanctuaire-t1-version-v1';
+const GUIDE_KEY = '2.2.0';
+let VER = (() => { try { return localStorage.getItem(VER_KEY) === '1' ? '1' : '2'; } catch { return '2'; } })();
+const FN = (n) => (VER === '2' ? 't1v2_' : 't1_') + n;
+const lm = { ready: false, failed: false, stored: false, loading: false, dtype: '' };
 
 // ---------- database calls ----------
 async function rpc(fn, args) {
@@ -412,28 +503,56 @@ function restoreSession() {
 }
 
 // ---------- entering the sheet ----------
-// unsent work that must survive an update (see the update notice spec)
+// Unsent work that must survive an update or a closed app (see the update notice spec).
+// It throws while the page is not ready, so that nothing saved earlier is overwritten with an empty draft.
 if (window.SNotice) SNotice.registerDraft('test1', {
-  collect: () => ({ text: Object.fromEntries(drafts), ui: { rating: Object.fromEntries(draftRating), openCats: [...openCats], filterMode } }),
+  collect: () => {
+    if (!session || !sheet) throw new Error('not ready');
+    const list = dirtyEntries();
+    const text = {}, rating = {};
+    for (const e of list) { if (e.kind === 'src' || e.kind === 'note' || e.kind === 'backremark' || e.kind === 'revremark') text[e.key] = e.value; else rating[e.key] = e.value; }
+    return { text, dirty: list.length > 0, ui: { rating, openCats: [...openCats], filterMode, version: VER } };
+  },
   restore: (d) => {
-    Object.entries(d.text || {}).forEach(([k, v]) => drafts.set(k, v));
-    Object.entries(d.ui.rating || {}).forEach(([k, v]) => draftRating.set(k, v));
-    (d.ui.openCats || []).forEach((c) => openCats.add(c));
-    filterMode = d.ui.filterMode || 'all'; $('filter').value = filterMode;
-    if (sheet) renderSheet();
+    const v = d.ui && d.ui.version === '1' ? '1' : '2';
+    Object.entries(d.text || {}).forEach(([k, val]) => drafts.set(k, val));
+    Object.entries((d.ui && d.ui.rating) || {}).forEach(([k, val]) => draftRating.set(k, val));
+    ((d.ui && d.ui.openCats) || []).forEach((c) => openCats.add(c));
+    filterMode = (d.ui && d.ui.filterMode) || 'all'; $('filter').value = filterMode;
+    if (v !== VER) { VER = v; try { localStorage.setItem(VER_KEY, v); } catch { /* ignore */ } sheet = null; buildVersionPanel(); refresh(true); }
+    else if (sheet) renderSheet();
   }
 });
 async function enter() {
   LANG = SBar.lang();                          // follows the top-bar language (defaults by role at sign-in)
   document.documentElement.lang = LANG;
   $('view-login').classList.add('hidden');
+  if (!(await guideGate())) return;            // the guide must be read once; Test 1 opens after "I have read and understood"
+  await start();
+}
+async function start() {
   $('view-main').classList.remove('hidden');
   buildChrome();
+  buildVersionPanel();
   buildTranslatorPanel();
-  autoStartTranslator();   // not awaited: the sheet opens while the translator starts
+  buildLlmPanel();
+  buildModelManager();
+  autoStartTranslator();   // not awaited: the sheet opens while the translators start
+  autoStartLlm();
   await refresh(true);
   startPolling();
+  SUI.guard({ isDirty: hasUnsaved, saveAll, discard: discardUnsaved });
   if (window.SNotice) SNotice.pageReady('test1');   // the engine may be missing while an update is being uploaded
+  SUI.autosave('test1');                            // "Save the changes" was chosen after the app had been closed
+  SUI.recover('test1');                             // unsaved text from a closed app: ask what to do
+}
+
+function rebuildAll() {
+  if (!session) return;
+  LANG = SBar.lang(); document.documentElement.lang = LANG;
+  if (gateShown) { renderGate(); return; }
+  buildChrome(); buildVersionPanel(); buildTranslatorPanel(); buildLlmPanel(); buildModelManager();
+  if (sheet) renderSheet();
 }
 
 function buildChrome() {
@@ -687,7 +806,7 @@ function buildTranslatorPanel() {
       el('option', { value: '4', text: t('beamCareful') })),
     el('div', { class: 'row' },
       el('button', { id: 'tprep', type: 'button', text: t('prepare'), onclick: () => prepareTranslator({ cacheOnly: tr.cached }) }),
-      el('button', { id: 'tredo', type: 'button', class: 'secondary hidden', text: t('redo'), onclick: () => { if (confirm(t('confirmRedo'))) prepareTranslator({ force: true }); } })),
+      el('button', { id: 'tredo', type: 'button', class: 'secondary hidden', text: t('redo'), onclick: async () => { if (await SUI.confirm({ title: t('redoTitle'), text: t('confirmRedo'), ok: t('redoOk'), cancel: t('cancel'), danger: true })) prepareTranslator({ force: true }); } })),
     el('div', { id: 'tfiles', class: 'files' }),
     el('div', { id: 'tstatus', class: 'msg', role: 'status', 'aria-live': 'polite', text: tr.ready ? t('ready', 0, tr.lex) : t('notReady') }));
   p.append(d);
@@ -697,7 +816,8 @@ function buildTranslatorPanel() {
 }
 
 function engineLabel() {
-  return `${tr.engineKind === 'engine2' ? 'newer 0.4.16' : 'official 0.4.9'}; beam ${tr.beam}; models v3.0${tr.lex ? ' with word lists' : ' without word lists'}`;
+  const base = `${tr.engineKind === 'engine2' ? 'newer 0.4.16' : 'official 0.4.9'}; beam ${tr.beam}; models v3.0${tr.lex ? ' with word lists' : ' without word lists'}`;
+  return VER === '2' ? `${base}; language model ${lm.ready ? 'Gemma 3 270M ' + lm.dtype + ' (processor)' : 'not used'}` : base;
 }
 function deviceLabel() {
   return `${navigator.userAgent.slice(0, 150)}; mem ${navigator.deviceMemory ?? '?'} GB; ${navigator.hardwareConcurrency ?? '?'} threads`;
@@ -709,7 +829,7 @@ const itemOf = (cat, author, slot) => sheet.items.find((i) => i.category_id === 
 async function refresh(force) {
   if (!session) return;
   try {
-    const r = await call('t1_get_sheet', {});
+    const r = await call(FN('get_sheet'), {});
     if (!r.ok) {
       if (r.error === 'auth') { showLogin(t('sessionEnded')); return; }
       return;
@@ -818,6 +938,7 @@ function ratingButtons(key, values, labelKeys, current) {
     b.addEventListener('click', () => {
       draftRating.set(key, v);
       for (const x of wrap.querySelectorAll('button')) x.setAttribute('aria-pressed', String(x === b));
+      wrap.dispatchEvent(new Event('ratingchange'));
     });
     wrap.append(b);
   }
@@ -829,6 +950,115 @@ function handleResult(r, box) {
   if (r && r.error === 'auth') { showLogin(t('sessionEnded')); return false; }
   setMsg(box, t('error', r?.error || 'unknown'), 'err');
   return false;
+}
+
+// ---------- unsaved changes (used by the save buttons, the leave guard and the draft kept when the app is closed) ----------
+const itemById = (id) => (sheet ? sheet.items.find((i) => i.id === id) : null);
+function dirtyEntries() {
+  const out = [];
+  if (!sheet || !session) return out;
+  for (const [k, v] of drafts) {
+    const kind = k.split(':')[0];
+    let saved = null;
+    if (kind === 'src') { const [, c, n] = k.split(':'); const it = itemOf(Number(c), session.role, Number(n)); saved = it ? it.source_text : ''; }
+    else if (kind === 'note') { const it = itemById(k.slice(5)); if (it) saved = it.author_note || ''; }
+    else if (kind === 'backremark') { const it = itemById(k.slice(11)); if (it) saved = it.back_remark || ''; }
+    else if (kind === 'revremark') { const it = itemById(k.slice(10)); if (it) saved = it.translation_remark || ''; }
+    if (saved === null) continue;
+    if ((v || '').trim() !== saved.trim()) out.push({ kind, key: k, value: v });
+  }
+  for (const [k, v] of draftRating) {
+    const kind = k.split(':')[0], it = itemById(k.slice(k.indexOf(':') + 1));
+    if (!it || !v) continue;
+    const saved = kind === 'back' ? it.back_rating : it.translation_rating;
+    if (v !== saved) out.push({ kind, key: k, value: v });
+  }
+  return out;
+}
+const hasUnsaved = () => dirtyEntries().length > 0;
+const askReplace = () => SUI.confirm({ title: t('confirmReplaceTitle'), text: t('confirmReplace'), ok: t('confirmReplaceOk'), cancel: t('cancel'), danger: true });
+
+// Saves every unsaved change with the normal rules. Returns true when everything was saved.
+async function saveAll() {
+  const list = dirtyEntries();
+  let ok = true;
+  const reviews = new Set();
+  busy++;
+  try {
+    for (const e of list) {
+      if (e.kind === 'src') {
+        const [, c, n] = e.key.split(':'), it = itemOf(Number(c), session.role, Number(n)), text = e.value.trim();
+        if (!text) { ok = false; continue; }
+        if (it && (it.translation_rating || it.back_rating) && !(await askReplace())) { ok = false; continue; }
+        const r = await call(FN('save_item'), { p_category: Number(c), p_slot: Number(n), p_source: text });
+        if (r && r.ok) drafts.delete(e.key); else ok = false;
+      } else if (e.kind === 'note') {
+        const r = await call(FN('set_note'), { p_item: e.key.slice(5), p_note: e.value });
+        if (r && r.ok) drafts.delete(e.key); else ok = false;
+      } else if (e.kind === 'back' || e.kind === 'backremark') reviews.add('back:' + e.key.slice(e.key.indexOf(':') + 1));
+      else if (e.kind === 'rev' || e.kind === 'revremark') reviews.add('rev:' + e.key.slice(e.key.indexOf(':') + 1));
+    }
+    for (const rk of reviews) {
+      const kind = rk.split(':')[0], id = rk.slice(rk.indexOf(':') + 1), it = itemById(id);
+      if (!it) { ok = false; continue; }
+      const back = kind === 'back';
+      const rating = draftRating.get(rk) ?? (back ? it.back_rating : it.translation_rating);
+      const remark = drafts.has((back ? 'backremark:' : 'revremark:') + id) ? drafts.get((back ? 'backremark:' : 'revremark:') + id) : ((back ? it.back_remark : it.translation_remark) || '');
+      if (!rating) { ok = false; continue; }
+      const r = await call(FN('rate'), { p_item: id, p_kind: back ? 'back' : 'translation', p_rating: rating, p_remark: remark });
+      if (r && r.ok) { draftRating.delete(rk); drafts.delete((back ? 'backremark:' : 'revremark:') + id); } else ok = false;
+    }
+    await refresh(true);
+  } catch (e) { ok = false; } finally { busy--; }
+  return ok && !hasUnsaved();
+}
+function discardUnsaved() { drafts.clear(); draftRating.clear(); }
+
+// ---------- helpers for the results of one sentence ----------
+const POLISH = ['improved', 'unchanged', 'failed', 'skipped'];
+function timeLabel(item, which) {
+  if (VER !== '2') return t('ms', which === 'out' ? (item.ms_out ?? 0) : (item.ms_back ?? 0));
+  const a = which === 'out' ? item.ms_out : item.ms_back, b = which === 'out' ? item.ms_polish : item.ms_back_polish;
+  return b != null ? `${t('ms', a ?? 0)} + ${t('ms', b)}` : t('ms', a ?? 0);
+}
+function resultBoxes(item, label, which) {
+  const text = which === 'out' ? item.translation : item.back_translation, draft = which === 'out' ? item.draft_translation : item.back_draft;
+  const pol = which === 'out' ? item.polish_out : item.polish_back;
+  const out = [el('div', { class: 'box' }, el('small', { text: `${label} · ${timeLabel(item, which)}` }), text || '')];
+  if (VER === '2' && pol) {
+    out.push(el('details', { class: 'plain' }, el('summary', { text: `${t('polish_' + pol)}` }),
+      el('div', { class: 'box' }, el('small', { text: t('draftLabel') }), draft || ''),
+      el('div', { class: 'box' }, el('small', { text: t('improvedLabel') }), text || '')));
+  }
+  return out;
+}
+// Shows Bergamot's draft at once and the language model's text as it is written. Returns small controls.
+function liveBox(root) {
+  const wrap = el('div', { class: 'box hidden' }), head = el('small'), body = el('div'), stat = el('div', { class: 'msg' });
+  const skip = el('button', { type: 'button', class: 'secondary', text: t('cancelImprove') });
+  wrap.append(head, body, stat, skip);
+  root.append(wrap);
+  return {
+    draft(txt) { wrap.classList.remove('hidden'); head.textContent = t('draftLabel'); body.textContent = txt; stat.textContent = ''; skip.style.display = 'none'; },
+    improving(handle) { stat.textContent = t('improving'); skip.style.display = ''; skip.onclick = () => { if (handle.cancel) handle.cancel(); }; },
+    token(txt) { stat.textContent = `${t('improving')} ${txt}`; },
+    hide() { wrap.classList.add('hidden'); },
+  };
+}
+
+// Bergamot translates first; in version 2 the language model then fixes the draft.
+async function pipeline(text, from, to, live) {
+  const d = await runTranslate(text, from, to);
+  if (VER !== '2') return { draft: d.text, text: d.text, msDraft: d.ms, msPolish: null, polish: null };
+  if (!lm.ready) return { draft: d.text, text: d.text, msDraft: d.ms, msPolish: null, polish: 'skipped' };
+  const handle = { cancelled: false };
+  if (live) { live.draft(d.text); live.improving(handle); }
+  const man = session.role === 'admin';                     // the English speaker is the man, the French speaker the woman
+  let o;
+  try {
+    o = await llm.improve({ text, draft: d.text, from, to, writer: man ? 'man' : 'woman', reader: man ? 'woman' : 'man', handle, onToken: live ? (s) => live.token(s) : undefined });
+  } catch (e) { console.error(e); o = { text: d.text, ms: 0, status: 'failed' }; }
+  return { draft: d.text, text: o.text, msDraft: d.ms, msPolish: o.ms, polish: o.status };
 }
 
 // ---- one of my own sentences ----
@@ -843,20 +1073,23 @@ function mineSlot(cat, n, item) {
   const ta = draftArea(key, item?.source_text, { placeholder: t('placeholderMine'), maxlength: '1000', 'aria-label': `${cat[t('cat')]} · ${t('slot', n)}` });
   root.append(ta);
 
-  const saveBtn = el('button', { type: 'button', class: 'secondary', text: t('save') });
+  const saveBtn = el('button', { type: 'button', text: t('save') });
   const testBtn = el('button', { type: 'button', text: t('test') });
+  const sv = SUI.save(saveBtn);
+  const upd = () => sv.set(ta.value.trim() !== (item ? item.source_text : ''));
+  ta.addEventListener('input', upd); upd();
   root.append(el('div', { class: 'row' }, saveBtn, testBtn), box);
+  const live = liveBox(root);
 
-  const confirmIfReviewed = () => !(item && (item.translation_rating || item.back_rating)) || confirm(t('confirmReplace'));
+  const confirmIfReviewed = async () => !(item && (item.translation_rating || item.back_rating)) || await askReplace();
 
   saveBtn.addEventListener('click', async () => {
     const text = ta.value.trim();
-    if (item && item.source_text === text && item.translation) { setMsg(box, t('noChange')); return; }
     if (!text) { setMsg(box, t('error', 'bad_text'), 'err'); return; }
-    if (!confirmIfReviewed()) return;
+    if (!(await confirmIfReviewed())) return;
     busy++; saveBtn.disabled = testBtn.disabled = true;
     try {
-      const r = await call('t1_save_item', { p_category: cat.id, p_slot: n, p_source: text });
+      const r = await call(FN('save_item'), { p_category: cat.id, p_slot: n, p_source: text });
       if (handleResult(r, box)) { drafts.delete(key); await refresh(true); }
     } catch { setMsg(box, t('netError'), 'err'); }
     finally { busy--; saveBtn.disabled = testBtn.disabled = false; }
@@ -866,37 +1099,41 @@ function mineSlot(cat, n, item) {
     const text = ta.value.trim();
     if (!text) { setMsg(box, t('error', 'bad_text'), 'err'); return; }
     if (!tr.ready) { $('tdetails').open = true; setMsg(box, t('needTranslator'), 'err'); $('tpanel').scrollIntoView({ block: 'center' }); return; }
-    if (!confirmIfReviewed()) return;
+    if (VER === '2' && !lm.ready && !lm.failed) { const d = $('ldetails'); if (d) d.open = true; setMsg(box, t('needLlm'), 'err'); const p = $('lpanel'); if (p) p.scrollIntoView({ block: 'center' }); return; }
+    if (!(await confirmIfReviewed())) return;
     busy++; saveBtn.disabled = testBtn.disabled = true;
     setMsg(box, t('translating'));
     try {
       const [from, to] = session.role === 'admin' ? ['en', 'fr'] : ['fr', 'en'];
-      const a = await runTranslate(text, from, to);
-      const b = await runTranslate(a.text, to, from);
-      const r = await call('t1_save_item', {
-        p_category: cat.id, p_slot: n, p_source: text, p_translation: a.text, p_back: b.text,
-        p_ms_out: a.ms, p_ms_back: b.ms, p_engine: engineLabel(), p_device: deviceLabel(),
-      });
+      const a = await pipeline(text, from, to, live);
+      live.hide();
+      const b = await pipeline(a.text, to, from, live);
+      live.hide();
+      const args = VER === '2'
+        ? { p_category: cat.id, p_slot: n, p_source: text, p_draft: a.draft, p_translation: a.text, p_polish_out: a.polish, p_back_draft: b.draft, p_back: b.text, p_polish_back: b.polish,
+            p_ms_out: a.msDraft, p_ms_polish: a.msPolish, p_ms_back: b.msDraft, p_ms_back_polish: b.msPolish, p_engine: engineLabel(), p_device: deviceLabel() }
+        : { p_category: cat.id, p_slot: n, p_source: text, p_translation: a.text, p_back: b.text, p_ms_out: a.msDraft, p_ms_back: b.msDraft, p_engine: engineLabel(), p_device: deviceLabel() };
+      const r = await call(FN('save_item'), args);
       if (handleResult(r, box)) { drafts.delete(key); await refresh(true); }
     } catch (e) {
-      console.error(e);
+      console.error(e); live.hide();
       setMsg(box, `${e.message || t('netError')}`, 'err');
     } finally { busy--; saveBtn.disabled = testBtn.disabled = false; }
   });
 
   if (item && item.translation) {
-    root.append(
-      el('div', { class: 'box' }, el('small', { text: `${t('translation')} · ${t('ms', item.ms_out ?? 0)}` }), item.translation),
-      el('div', { class: 'box' }, el('small', { text: `${t('back')} · ${t('ms', item.ms_back ?? 0)}` }), item.back_translation || ''));
+    root.append(...resultBoxes(item, t('translation'), 'out'), ...resultBoxes(item, t('back'), 'back'));
 
     // note for the reviewer
     const nkey = `note:${item.id}`, nbox = msgBox();
     const nta = draftArea(nkey, item.author_note, { class: 'short', maxlength: '500', 'aria-label': t('noteLabel') });
-    const nbtn = el('button', { type: 'button', class: 'secondary', text: t('saveNote') });
+    const nbtn = el('button', { type: 'button', text: t('saveNote') });
+    const nsv = SUI.save(nbtn), nupd = () => nsv.set(nta.value.trim() !== (item.author_note || ''));
+    nta.addEventListener('input', nupd); nupd();
     nbtn.addEventListener('click', async () => {
       busy++; nbtn.disabled = true;
       try {
-        const r = await call('t1_set_note', { p_item: item.id, p_note: nta.value });
+        const r = await call(FN('set_note'), { p_item: item.id, p_note: nta.value });
         if (handleResult(r, nbox)) { drafts.delete(nkey); await refresh(true); }
       } catch { setMsg(nbox, t('netError'), 'err'); } finally { busy--; nbtn.disabled = false; }
     });
@@ -911,17 +1148,20 @@ function mineSlot(cat, n, item) {
     const bkey = `back:${item.id}`, rkey = `backremark:${item.id}`, bbox = msgBox();
     const rta = draftArea(rkey, item.back_remark, { class: 'short', maxlength: '500', 'aria-label': t('remark') });
     const bsave = el('button', { type: 'button', text: t('saveCheck') });
+    const bsv = SUI.save(bsave);
+    const rate = ratingButtons(bkey, ['kept', 'changed'], { kept: 'kept', changed: 'changed' }, item.back_rating);
+    const bupd = () => bsv.set((draftRating.get(bkey) ?? item.back_rating ?? null) !== (item.back_rating ?? null) || rta.value.trim() !== (item.back_remark || ''));
+    rta.addEventListener('input', bupd); rate.addEventListener('ratingchange', bupd); bupd();
     bsave.addEventListener('click', async () => {
       const v = draftRating.get(bkey) ?? item.back_rating;
       if (!v) { setMsg(bbox, t('error', 'bad_rating'), 'err'); return; }
       busy++; bsave.disabled = true;
       try {
-        const r = await call('t1_rate', { p_item: item.id, p_kind: 'back', p_rating: v, p_remark: rta.value });
+        const r = await call(FN('rate'), { p_item: item.id, p_kind: 'back', p_rating: v, p_remark: rta.value });
         if (handleResult(r, bbox)) { draftRating.delete(bkey); drafts.delete(rkey); await refresh(true); }
       } catch { setMsg(bbox, t('netError'), 'err'); } finally { busy--; bsave.disabled = false; }
     });
-    root.append(el('label', { text: t('judgeBack') }),
-      ratingButtons(bkey, ['kept', 'changed'], { kept: 'kept', changed: 'changed' }, item.back_rating),
+    root.append(el('label', { text: t('judgeBack') }), rate,
       el('label', { text: t('remark') }), rta, el('div', { class: 'row' }, bsave), bbox);
   }
 
@@ -945,23 +1185,27 @@ function theirSlot(cat, n, item) {
     root.append(el('p', { class: 'muted', text: t('notTestedYet') }));
   } else {
     root.append(el('div', { class: 'box' }, el('small', { text: t('translation') }), item.translation));
-    const det = el('details', { class: 'plain' }, el('summary', { text: t('theirBack') }), el('div', { class: 'box' }, item.back_translation || ''));
-    root.append(det);
+    if (VER === '2' && item.polish_out) root.append(el('details', { class: 'plain' }, el('summary', { text: t('polish_' + item.polish_out) }),
+      el('div', { class: 'box' }, el('small', { text: t('draftLabel') }), item.draft_translation || '')));
+    root.append(el('details', { class: 'plain' }, el('summary', { text: t('theirBack') }), el('div', { class: 'box' }, item.back_translation || '')));
 
     const key = `rev:${item.id}`, rkey = `revremark:${item.id}`, box = msgBox();
     const rta = draftArea(rkey, item.translation_remark, { class: 'short', maxlength: '500', 'aria-label': t('remark') });
     const save = el('button', { type: 'button', text: t('saveReview') });
+    const sv = SUI.save(save);
+    const rate = ratingButtons(key, ['good', 'awkward', 'wrong'], { good: 'good', awkward: 'awkward', wrong: 'wrong' }, item.translation_rating);
+    const upd = () => sv.set((draftRating.get(key) ?? item.translation_rating ?? null) !== (item.translation_rating ?? null) || rta.value.trim() !== (item.translation_remark || ''));
+    rta.addEventListener('input', upd); rate.addEventListener('ratingchange', upd); upd();
     save.addEventListener('click', async () => {
       const v = draftRating.get(key) ?? item.translation_rating;
       if (!v) { setMsg(box, t('error', 'bad_rating'), 'err'); return; }
       busy++; save.disabled = true;
       try {
-        const r = await call('t1_rate', { p_item: item.id, p_kind: 'translation', p_rating: v, p_remark: rta.value });
+        const r = await call(FN('rate'), { p_item: item.id, p_kind: 'translation', p_rating: v, p_remark: rta.value });
         if (handleResult(r, box)) { draftRating.delete(key); drafts.delete(rkey); await refresh(true); }
       } catch { setMsg(box, t('netError'), 'err'); } finally { busy--; save.disabled = false; }
     });
-    root.append(el('label', { text: t('judgeTranslation') }),
-      ratingButtons(key, ['good', 'awkward', 'wrong'], { good: 'good', awkward: 'awkward', wrong: 'wrong' }, item.translation_rating),
+    root.append(el('label', { text: t('judgeTranslation') }), rate,
       el('label', { text: t('remark') }), rta, el('div', { class: 'row' }, save), box);
   }
   if (session.role === 'admin') root.append(deleteButton(item));
@@ -972,10 +1216,10 @@ function deleteButton(item) {
   const box = msgBox();
   const b = el('button', { type: 'button', class: 'danger', text: t('del') });
   b.addEventListener('click', async () => {
-    if (!confirm(t('confirmDel'))) return;
+    if (!(await SUI.confirm({ title: t('delTitle'), text: t('confirmDel'), ok: t('delOk'), cancel: t('cancel'), danger: true }))) return;
     busy++; b.disabled = true;
     try {
-      const r = await call('t1_delete_item', { p_item: item.id });
+      const r = await call(FN('delete_item'), { p_item: item.id });
       if (handleResult(r, box)) await refresh(true);
     } catch { setMsg(box, t('netError'), 'err'); } finally { busy--; b.disabled = false; }
   });
@@ -991,13 +1235,201 @@ function renderAdmin() {
   const box = msgBox();
   const reset = el('button', { type: 'button', class: 'danger', text: t('reset') });
   reset.addEventListener('click', async () => {
-    if (!confirm(t('confirmReset'))) return;
+    if (!(await SUI.confirm({ title: t('resetTitle'), text: t('confirmReset', VER), ok: t('resetOk'), cancel: t('cancel'), danger: true }))) return;
     try {
-      const r = await call('t1_reset', {});
+      const r = await call(FN('reset'), {});
       if (handleResult(r, box)) await refresh(true);
     } catch { setMsg(box, t('netError'), 'err'); }
   });
   a.append(el('h2', { text: t('adminTitle') }), el('div', { class: 'row' }, reset), box);
+}
+
+// ---------- version selector ----------
+function buildVersionPanel() {
+  const p = $('vpanel');
+  p.textContent = '';
+  const mk = (v, label) => el('button', { type: 'button', class: 'vbtn', 'aria-pressed': String(VER === v), text: label, onclick: () => switchVersion(v) });
+  p.append(el('h2', { text: t('verTitle') }),
+    el('div', { class: 'rate two vsel' }, mk('2', t('ver2')), mk('1', t('ver1'))),
+    el('p', { class: 'muted', text: VER === '2' ? t('ver2help') : t('ver1help') }));
+  $('lpanel').classList.toggle('hidden', VER !== '2');
+}
+async function switchVersion(v) {
+  if (v === VER) return;
+  if (hasUnsaved()) {
+    const id = await SUI.dialog({ title: t('switchTitle'), text: t('switchText'), cancelId: 'stay', focus: 1,
+      buttons: [{ id: 'save', label: t('switchSave'), kind: 'good' }, { id: 'stay', label: t('switchStay'), kind: 'primary' }, { id: 'drop', label: t('switchDrop'), kind: 'quiet' }] });
+    if (id === 'stay') return;
+    if (id === 'save' && !(await saveAll())) return;
+    discardUnsaved();
+  }
+  VER = v;
+  try { localStorage.setItem(VER_KEY, v); } catch { /* ignore */ }
+  sheet = null;
+  buildVersionPanel(); buildChrome();
+  await refresh(true);
+}
+
+// ---------- language model panel (version 2) ----------
+function llmStatus(text, kind) { const s = $('lstatus'); if (s) { s.textContent = text; s.className = 'msg' + (kind ? ' ' + kind : ''); } }
+function buildLlmPanel() {
+  const p = $('lpanel');
+  p.textContent = '';
+  const d = el('details', { class: 'plain', id: 'ldetails', open: !lm.ready },
+    el('summary', { text: t('llmTitle') }),
+    el('p', { class: 'muted', text: t('llmHelp') }),
+    el('p', { class: 'muted', id: 'lsize' }),
+    el('div', { class: 'row' }, el('button', { id: 'lprep', type: 'button', text: lm.stored ? t('llmStart') : t('llmPrepare'), onclick: prepareLlm })),
+    el('progress', { id: 'lbar', max: '100', value: '0', class: 'hidden', style: 'width:100%' }),
+    el('div', { id: 'lstatus', class: 'msg', role: 'status', 'aria-live': 'polite', text: lm.ready ? t('llmReady', 0, lm.dtype) : t('llmNotReady') }));
+  p.append(d);
+  if (!lm.stored && !lm.ready) llm.downloadSize().then((s) => {
+    const e = $('lsize'); if (!e) return;
+    lm.sizeBytes = s.bytes || 0;
+    e.textContent = s.bytes ? t('llmSize', Math.round(s.bytes / 1048576)) : t('llmSizeUnknown');
+  }).catch(() => { const e = $('lsize'); if (e) e.textContent = t('llmSizeUnknown'); });
+}
+async function prepareLlm() {
+  if (lm.loading || lm.ready) return;
+  const btn = $('lprep'), bar = $('lbar');
+  lm.loading = true; lm.failed = false;
+  btn.disabled = true; bar.classList.remove('hidden');
+  const t0 = performance.now();
+  llmStatus(t('llmPreparing'));
+  try {
+    await llm.load({ onProgress: (p) => {
+      const got = Math.round(p.allLoaded / 1048576);
+      if (lm.sizeBytes) { bar.value = Math.min(99, Math.round((p.allLoaded / lm.sizeBytes) * 100)); llmStatus(t('llmDownloading', got, Math.round(lm.sizeBytes / 1048576))); }
+      else llmStatus(t('llmDownloadingUnknown', got));
+    } });
+    llmStatus(t('llmPreparing'));
+    // one tiny real run: proves the model works on this phone and warms it up
+    await llm.improve({ text: 'Hello, my friend.', draft: 'Bonjour, mon ami.', from: 'en', to: 'fr', writer: 'man', reader: 'woman', handle: {} });
+    lm.ready = true; lm.stored = true; lm.dtype = llm.status().dtype || '';
+    bar.value = 100;
+    llmStatus(t('llmReady', Math.round((performance.now() - t0) / 1000), lm.dtype), 'ok');
+    const d = $('ldetails'); if (d) d.open = false;
+  } catch (e) {
+    console.error(e);
+    lm.failed = true; lm.ready = false;
+    llmStatus(t('llmFail', (e && e.message) || String(e)), 'err');
+  } finally {
+    lm.loading = false; btn.disabled = false;
+    btn.textContent = lm.stored ? t('llmStart') : t('llmPrepare');
+    refreshModelManager();
+  }
+}
+async function autoStartLlm() {
+  try { lm.stored = await llm.isStored(); } catch { lm.stored = false; }
+  const b = $('lprep'); if (b) b.textContent = lm.stored ? t('llmStart') : t('llmPrepare');
+  if (lm.stored && !lm.ready && !lm.loading && VER === '2') prepareLlm();
+}
+
+// ---------- manage stored models ----------
+function saveBlobAs(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+}
+function buildModelManager() {
+  const p = $('mpanel');
+  p.textContent = '';
+  p.append(el('details', { class: 'plain', id: 'mdetails' },
+    el('summary', { text: t('mmTitle') }),
+    el('p', { class: 'muted', text: t('mmHelp') }),
+    el('div', { id: 'mlist' }),
+    el('div', { id: 'mpersist', class: 'muted' }),
+    el('div', { id: 'mmsg', class: 'msg', role: 'status', 'aria-live': 'polite' })));
+  refreshModelManager();
+}
+async function refreshModelManager() {
+  const list = $('mlist'); if (!list) return;
+  const rows = [];
+  let berg = [], files = [];
+  try { berg = (await store.all()) || []; } catch { berg = []; }
+  try { files = await llm.storedFiles(); } catch { files = []; }
+  const msg = (text, kind) => { const m = $('mmsg'); m.textContent = text; m.className = 'msg' + (kind ? ' ' + kind : ''); };
+  const row = (title, bytes, onDelete, onSave, onLoad) => {
+    const file = el('input', { type: 'file', class: 'hidden', accept: '.smdl,application/octet-stream' });
+    file.addEventListener('change', async () => {
+      const f = file.files && file.files[0]; if (!f) return;
+      msg(t('mmBusy'));
+      try { const n = await onLoad(f); msg(t('mmLoaded', n), 'ok'); } catch (e) { msg(t('mmFail', e.message || String(e)), 'err'); }
+      file.value = ''; refreshModelManager();
+    });
+    return el('div', { class: 'slot' },
+      el('h3', { text: title }), el('div', { class: 'muted', text: bytes ? `${(bytes / 1048576).toFixed(1)} MB` : t('mmEmpty') }),
+      el('div', { class: 'row' },
+        bytes ? el('button', { type: 'button', class: 'secondary', text: t('mmSave'), onclick: async () => { msg(t('mmBusy')); try { await onSave(); } catch (e) { msg(t('mmFail', e.message || String(e)), 'err'); } } }) : null,
+        el('button', { type: 'button', class: 'secondary', text: t('mmLoad'), onclick: () => file.click() }),
+        bytes ? el('button', { type: 'button', class: 'danger', text: t('mmDelete'), onclick: async () => {
+          if (!(await SUI.confirm({ title: t('mmDeleteTitle'), text: t('mmDeleteText', title), ok: t('mmDelete'), cancel: t('cancel'), danger: true }))) return;
+          try { await onDelete(); msg(t('mmDeleted'), 'ok'); } catch (e) { msg(t('mmFail', e.message || String(e)), 'err'); }
+          refreshModelManager();
+        } }) : null),
+      file);
+  };
+  const bergBytes = berg.reduce((s, r) => s + (r.bytes || (r.buffer ? r.buffer.byteLength : 0)), 0);
+  rows.push(row(t('mmBerg'), bergBytes,
+    async () => { await store.clear(); tr.cached = false; tr.ready = false; if (tr.translator) { try { await tr.translator.delete(); } catch { /* ignore */ } tr.translator = null; } updatePrepLabels(); },
+    async () => { const b = await store.exportBlob(); saveBlobAs(b, 'sanctuaire-bergamot-models.smdl'); msg(t('mmSaved', 'sanctuaire-bergamot-models.smdl'), 'ok'); },
+    async (f) => { const n = await store.importFile(f); tr.cached = await store.isComplete(); updatePrepLabels(); return n; }));
+  const llmBytes = files.reduce((s, f) => s + f.size, 0);
+  rows.push(row(t('mmLlm'), llmBytes,
+    async () => { await llm.deleteStored(); lm.ready = false; lm.stored = false; buildLlmPanel(); },
+    async () => { const b = await llm.exportBlob(); saveBlobAs(b, 'sanctuaire-gemma-270m.smdl'); msg(t('mmSaved', 'sanctuaire-gemma-270m.smdl'), 'ok'); },
+    async (f) => { const n = await llm.importFile(f); lm.stored = true; buildLlmPanel(); return n; }));
+  list.textContent = ''; list.append(...rows);
+  let persisted = false; try { persisted = !!(navigator.storage && navigator.storage.persisted && await navigator.storage.persisted()); } catch { /* ignore */ }
+  $('mpersist').textContent = persisted ? t('mmPersistYes') : t('mmPersistNo');
+}
+
+// ---------- the guide that must be read once ----------
+let gateShown = false;
+function renderGate(failed) {
+  const g = (window.SGUIDE_T1 && (window.SGUIDE_T1[LANG] || window.SGUIDE_T1.en)) || { title: 'Test 1', purpose: '', steps: [], tips: [] };
+  const mine = session && session.role === 'admin' ? g.a : g.p;
+  const v = $('view-gate');
+  v.textContent = '';
+  const read = el('button', { type: 'button', id: 'gread', text: t('gateRead'), disabled: true });
+  const msg = el('div', { class: 'msg', role: 'status' });
+  const sentinel = el('div', { style: 'height:1px' });
+  const hint = el('p', { class: 'muted', text: t('gateScroll') });
+  const card = el('section', { class: 'card' },
+    el('h1', { text: t('gateTitle') }), el('p', { text: t('gateLead') }),
+    el('h2', { text: g.title }),
+    el('h3', { text: t('gatePurpose') }), el('p', { text: g.purpose }),
+    el('h3', { text: t('gateSteps') }), el('ol', {}, (g.steps || []).map((s) => el('li', { text: s }))),
+    mine && mine.length ? [el('h3', { text: t('gateYou') }), el('ul', {}, mine.map((s) => el('li', { text: s })))] : null,
+    g.tips && g.tips.length ? [el('h3', { text: t('gateTips') }), el('ul', {}, g.tips.map((s) => el('li', { text: s })))] : null,
+    sentinel, hint, el('div', { class: 'row' }, read), msg);
+  v.append(card);
+  if (failed) setMsg(msg, t('netError'), 'err');
+  const unlock = () => { read.disabled = false; hint.classList.add('hidden'); };
+  if ('IntersectionObserver' in window) { const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { unlock(); io.disconnect(); } }); io.observe(sentinel); }
+  else setTimeout(unlock, 4000);
+  read.addEventListener('click', async () => {
+    read.disabled = true; setMsg(msg, t('gateSaving'));
+    try {
+      const r = await call('t1_guide', { p_key: GUIDE_KEY, p_ack: true });
+      if (r && r.ok && r.acked) { gateShown = false; v.classList.add('hidden'); await start(); }
+      else if (r && r.error === 'auth') showLogin(t('sessionEnded'));
+      else { read.disabled = false; setMsg(msg, t('error', (r && r.error) || 'unknown'), 'err'); }
+    } catch (e) { read.disabled = false; setMsg(msg, t('netError'), 'err'); }
+  });
+}
+// resolves true when the guide was already confirmed; otherwise shows it and resolves false
+async function guideGate() {
+  let r;
+  try { r = await call('t1_guide', { p_key: GUIDE_KEY }); } catch (e) { r = null; }
+  if (r && r.error === 'auth') { showLogin(t('sessionEnded')); return false; }
+  if (r && r.ok && r.acked) return true;
+  gateShown = true;
+  $('view-main').classList.add('hidden');
+  const v = $('view-gate'); v.classList.remove('hidden');
+  renderGate(!(r && r.ok));
+  window.scrollTo(0, 0);
+  return false;
 }
 
 // ---------- PDF report ----------
@@ -1033,7 +1465,7 @@ if (!configured()) {
 } else {
   showLogin();
 }
-window.addEventListener('sanctuaire-lang', () => location.reload());
+window.addEventListener('sanctuaire-lang', rebuildAll);
 </script>
 </body>
 </html>
