@@ -97,18 +97,34 @@ export async function resumableFetch(input, init) {
 }
 
 // ---------- 2. loading ----------
+// The runtime files are ours (vendor/llm/). Two of the library's imports were pointed at our own copy of the engine (see VERSIONS.txt),
+// and the 27 MB processor file is kept in two parts because GitHub's web upload refuses single files above 25 MB.
+async function wasmBlobUrl() {
+  const parts = [];
+  for (const n of ['part0', 'part1']) {
+    let lastErr;
+    for (let a = 0; a < 4; a++) {
+      try { await online(); const r = await fetch(`${RUNTIME}ort-wasm-simd-threaded.asyncify.wasm.${n}`); if (!r.ok) throw new Error(`HTTP ${r.status} for the program file`); parts.push(await r.blob()); lastErr = null; break; }
+      catch (e) { lastErr = e; await wait(1000 * 2 ** a); }
+    }
+    if (lastErr) throw lastErr;
+  }
+  return URL.createObjectURL(new Blob(parts, { type: 'application/wasm' }));
+}
 async function runtime() {
   if (state.tf) return state.tf;
+  const ort = await import('./vendor/llm/ort.webgpu.bundle.min.mjs');   // the same module that transformers.web.min.js imports
+  const oenv = ort.env || (ort.default && ort.default.env);
+  if (!oenv || !oenv.wasm) throw new Error('The language-model engine did not start (no WebAssembly settings).');
+  oenv.wasm.numThreads = 1;                                            // this site cannot use several threads (no cross-origin isolation)
+  oenv.wasm.proxy = false;
+  oenv.wasm.wasmPaths = { mjs: RUNTIME + 'ort-wasm-simd-threaded.asyncify.mjs', wasm: await wasmBlobUrl() };
   const tf = await import('./vendor/llm/transformers.web.min.js');
   const env = tf.env;
   env.allowLocalModels = false; env.allowRemoteModels = true;
   env.useBrowserCache = true; env.cacheKey = CACHE_NAME;
+  env.useWasmCache = false;                                            // the engine file is already in memory
   env.fetch = resumableFetch;
-  const w = env.backends && env.backends.onnx && env.backends.onnx.wasm;
-  if (!w) throw new Error('The language-model runtime did not start (no WebAssembly settings).');
-  w.numThreads = 1;                                       // this site cannot use several threads (no cross-origin isolation)
-  w.proxy = false;
-  w.wasmPaths = { mjs: RUNTIME + 'ort-wasm-simd-threaded.mjs', wasm: RUNTIME + 'ort-wasm-simd-threaded.wasm' };
   state.tf = tf;
   return tf;
 }
