@@ -290,9 +290,16 @@ const EXTRA = {
     ver1help: 'The first approach, kept as it was. Its sentences, results and progress are separate from version 2.',
     switchTitle: 'Switch version?', switchText: 'You have changes that are not saved in this version.',
     switchSave: 'Save and switch', switchStay: 'Stay here', switchDrop: 'Switch without saving',
+    llmChecking: 'Checking the file list…', llmConfirmTitle: 'Download the language model?',
+    llmConfirmText: (mb) => `This downloads ${mb} MB (the exact size from the file list), plus about 28 MB of program files. Use Wi-Fi. You can pause, continue or cancel at any time.`, llmConfirmOk: 'Download',
+    dlPause: 'Pause', dlContinue: 'Continue', dlCancel: 'Cancel download',
+    dlPaused: (a, b) => `Paused at ${a} of ${b} MB. What is downloaded is kept.`,
+    dlCancelTitle: 'Cancel the download?', dlCancelText: 'The part that is already downloaded will be deleted from this phone.', dlCancelOk: 'Cancel the download', dlKeep: 'Keep downloading',
+    dlLeaveTitle: 'A download is running', dlLeaveText: 'If you leave this page now, the download is paused. What is already downloaded is kept and you can continue it later.', dlStay: 'Stay on this page', dlPauseLeave: 'Pause and leave',
+    dlEarlier: 'A download was started earlier and stopped. Press Continue: it carries on from where it stopped.',
     llmTitle: 'Language model on this phone',
     llmHelp: 'Version 2 uses a small language model (Gemma 3 270M). It runs on your phone, on the processor, and is downloaded once. Nothing you type is sent anywhere.',
-    llmSize: (m) => `Download size: about ${m} MB for the model, plus about 28 MB of program files. Use Wi-Fi.`, llmSizeUnknown: 'The download size is shown when the download starts. Use Wi-Fi.',
+    llmSize: (m) => `Download size: about ${m} MB for the model, plus about 28 MB of program files. Use Wi-Fi.`, llmSizeUnknown: 'The exact download size is shown before anything is downloaded. Use Wi-Fi.',
     llmPrepare: 'Download and prepare (one time only)', llmStart: 'Start the language model (no download)', llmPreparing: 'Preparing…',
     llmDownloading: (a, b) => `Downloading: ${a} of ${b} MB. If the connection drops, it continues from where it stopped.`,
     llmDownloadingUnknown: (a) => `Downloading: ${a} MB so far. If the connection drops, it continues from where it stopped.`,
@@ -323,9 +330,16 @@ const EXTRA = {
     ver1help: 'La première approche, gardée telle quelle. Ses phrases, ses résultats et son avancement sont séparés de la version 2.',
     switchTitle: 'Changer de version ?', switchText: 'Tu as des modifications non enregistrées dans cette version.',
     switchSave: 'Enregistrer et changer', switchStay: 'Rester ici', switchDrop: 'Changer sans enregistrer',
+    llmChecking: 'Vérification de la liste des fichiers…', llmConfirmTitle: 'Télécharger le modèle de langage ?',
+    llmConfirmText: (mb) => `Cela télécharge ${mb} Mo (la taille exacte de la liste des fichiers), plus environ 28 Mo de fichiers du programme. Utilise le Wi-Fi. Tu peux mettre en pause, continuer ou annuler à tout moment.`, llmConfirmOk: 'Télécharger',
+    dlPause: 'Pause', dlContinue: 'Continuer', dlCancel: 'Annuler le téléchargement',
+    dlPaused: (a, b) => `En pause à ${a} Mo sur ${b}. Ce qui est téléchargé est gardé.`,
+    dlCancelTitle: 'Annuler le téléchargement ?', dlCancelText: 'La partie déjà téléchargée sera supprimée de ce téléphone.', dlCancelOk: 'Annuler le téléchargement', dlKeep: 'Continuer le téléchargement',
+    dlLeaveTitle: 'Un téléchargement est en cours', dlLeaveText: 'Si tu quittes cette page maintenant, le téléchargement est mis en pause. Ce qui est déjà téléchargé est gardé et tu pourras le continuer plus tard.', dlStay: 'Rester sur la page', dlPauseLeave: 'Mettre en pause et quitter',
+    dlEarlier: 'Un téléchargement a été commencé puis arrêté. Appuie sur Continuer : il reprend là où il s\'est arrêté.',
     llmTitle: 'Modèle de langage sur ce téléphone',
     llmHelp: 'La version 2 utilise un petit modèle de langage (Gemma 3 270M). Il tourne sur ton téléphone, sur le processeur, et se télécharge une seule fois. Rien de ce que tu écris n\'est envoyé ailleurs.',
-    llmSize: (m) => `Taille du téléchargement : environ ${m} Mo pour le modèle, plus environ 28 Mo de fichiers du programme. Utilise le Wi-Fi.`, llmSizeUnknown: 'La taille du téléchargement s\'affiche quand il commence. Utilise le Wi-Fi.',
+    llmSize: (m) => `Taille du téléchargement : environ ${m} Mo pour le modèle, plus environ 28 Mo de fichiers du programme. Utilise le Wi-Fi.`, llmSizeUnknown: 'La taille exacte du téléchargement s\'affiche avant tout téléchargement. Utilise le Wi-Fi.',
     llmPrepare: 'Télécharger et préparer (une seule fois)', llmStart: 'Démarrer le modèle de langage (sans téléchargement)', llmPreparing: 'Préparation…',
     llmDownloading: (a, b) => `Téléchargement : ${a} Mo sur ${b}. Si la connexion coupe, il reprend là où il s\'est arrêté.`,
     llmDownloadingUnknown: (a) => `Téléchargement : ${a} Mo pour l\'instant. Si la connexion coupe, il reprend là où il s\'est arrêté.`,
@@ -541,6 +555,7 @@ async function start() {
   autoStartLlm();
   await refresh(true);
   startPolling();
+  registerDownloadBlock();                         // leaving while the model downloads asks first
   SUI.guard({ isDirty: hasUnsaved, saveAll, discard: discardUnsaved });
   if (window.SNotice) SNotice.pageReady('test1');   // the engine may be missing while an update is being uploaded
   SUI.autosave('test1');                            // "Save the changes" was chosen after the app had been closed
@@ -1271,58 +1286,105 @@ async function switchVersion(v) {
 }
 
 // ---------- language model panel (version 2) ----------
+const MB = (n) => Math.round(n / 1048576);
 function llmStatus(text, kind) { const s = $('lstatus'); if (s) { s.textContent = text; s.className = 'msg' + (kind ? ' ' + kind : ''); } }
 function buildLlmPanel() {
   const p = $('lpanel');
   p.textContent = '';
-  const d = el('details', { class: 'plain', id: 'ldetails', open: !lm.ready },
+  p.append(el('details', { class: 'plain', id: 'ldetails', open: !lm.ready },
     el('summary', { text: t('llmTitle') }),
     el('p', { class: 'muted', text: t('llmHelp') }),
-    el('p', { class: 'muted', id: 'lsize' }),
-    el('div', { class: 'row' }, el('button', { id: 'lprep', type: 'button', text: lm.stored ? t('llmStart') : t('llmPrepare'), onclick: prepareLlm })),
+    el('p', { class: 'muted', id: 'lsize', text: lm.stored || lm.ready ? '' : t('llmSizeUnknown') }),
+    el('div', { class: 'row', id: 'lbtns' }),
     el('progress', { id: 'lbar', max: '100', value: '0', class: 'hidden', style: 'width:100%' }),
-    el('div', { id: 'lstatus', class: 'msg', role: 'status', 'aria-live': 'polite', text: lm.ready ? t('llmReady', 0, lm.dtype) : t('llmNotReady') }));
-  p.append(d);
-  if (!lm.stored && !lm.ready) llm.downloadSize().then((s) => {
-    const e = $('lsize'); if (!e) return;
-    lm.sizeBytes = s.bytes || 0;
-    e.textContent = s.bytes ? t('llmSize', Math.round(s.bytes / 1048576)) : t('llmSizeUnknown');
-  }).catch(() => { const e = $('lsize'); if (e) e.textContent = t('llmSizeUnknown'); });
+    el('div', { id: 'lstatus', class: 'msg', role: 'status', 'aria-live': 'polite' })));
+  renderLlm();
 }
-async function prepareLlm() {
-  if (lm.loading || lm.ready) return;
-  const btn = $('lprep'), bar = $('lbar');
-  lm.loading = true; lm.failed = false;
-  btn.disabled = true; bar.classList.remove('hidden');
-  const t0 = performance.now();
-  llmStatus(t('llmPreparing'));
+// Shows the state of the download or the model: the right buttons and the progress.
+function renderLlm() {
+  const row = $('lbtns'); if (!row) return;
+  const d = llm.DL, bar = $('lbar');
+  row.textContent = '';
+  const btn = (text, onclick, cls) => el('button', { type: 'button', class: cls || '', text, onclick });
+  bar.classList.toggle('hidden', !(d.state === 'running' || d.state === 'paused'));
+  if (d.total) bar.value = Math.min(100, Math.round((d.loaded / d.total) * 100));
+  if (lm.ready) { llmStatus(t('llmReady', lm.secs || 0, lm.dtype), 'ok'); return; }
+  if (lm.loading) { llmStatus(t('llmPreparing')); return; }
+  if (d.state === 'running') {
+    llmStatus(t('llmDownloading', MB(d.loaded), MB(d.total)));
+    row.append(btn(t('dlPause'), () => llm.pause(), 'secondary'), btn(t('dlCancel'), cancelDownload, 'danger'));
+  } else if (d.state === 'paused') {
+    llmStatus(d.error || t('dlPaused', MB(d.loaded), MB(d.total)), d.error ? 'err' : '');
+    row.append(btn(t('dlContinue'), runDownload), btn(t('dlCancel'), cancelDownload, 'danger'));
+  } else if (lm.stored) {
+    if (!lm.failed) llmStatus(t('llmNotReady'));
+    row.append(btn(t('llmStart'), startModel));
+  } else if (lm.partial) {
+    llmStatus(t('dlEarlier'));
+    row.append(btn(t('dlContinue'), startDownload), btn(t('dlCancel'), cancelDownload, 'danger'));
+  } else {
+    if (!lm.failed) llmStatus(t('llmNotReady'));
+    row.append(btn(t('llmPrepare'), startDownload));
+  }
+}
+llm.onDownload(() => renderLlm());
+// the download is checked and confirmed first (exact size), then it runs by itself and the model starts when it is done
+async function startDownload() {
+  lm.failed = false;
+  llmStatus(t('llmChecking'));
   try {
-    await llm.load({ onProgress: (p) => {
-      const got = Math.round(p.allLoaded / 1048576);
-      if (lm.sizeBytes) { bar.value = Math.min(99, Math.round((p.allLoaded / lm.sizeBytes) * 100)); llmStatus(t('llmDownloading', got, Math.round(lm.sizeBytes / 1048576))); }
-      else llmStatus(t('llmDownloadingUnknown', got));
-    } });
-    llmStatus(t('llmPreparing'));
-    // one tiny real run: proves the model works on this phone and warms it up
+    const p = llm.DL.plan || (llm.DL.plan = await llm.plan());
+    if (!lm.partial) {
+      const ok = await SUI.confirm({ title: t('llmConfirmTitle'), text: t('llmConfirmText', MB(p.total)), ok: t('llmConfirmOk'), cancel: t('cancel') });
+      if (!ok) { llm.DL.plan = null; renderLlm(); return; }
+    }
+  } catch (e) { llm.DL.plan = null; lm.failed = true; llmStatus(t('llmFail', (e && e.message) || String(e)), 'err'); renderLlm(); return; }
+  await runDownload();
+}
+async function runDownload() {
+  lm.failed = false;
+  await llm.download();
+  if (llm.DL.state === 'done') { lm.stored = true; lm.partial = false; await startModel(); }
+  refreshModelManager();
+}
+async function cancelDownload() {
+  if (!(await SUI.confirm({ title: t('dlCancelTitle'), text: t('dlCancelText'), ok: t('dlCancelOk'), cancel: t('dlKeep'), danger: true }))) return;
+  await llm.cancel(); lm.stored = false; lm.partial = false; lm.ready = false; lm.failed = false;
+  llmStatus(t('llmNotReady')); renderLlm(); refreshModelManager();
+}
+// load the stored model into memory and run one tiny sentence: proves it works on this phone and warms it up
+async function startModel() {
+  if (lm.loading || lm.ready) return;
+  lm.loading = true; lm.failed = false; renderLlm();
+  const t0 = performance.now();
+  try {
+    await llm.load();
     await llm.improve({ text: 'Hello, my friend.', draft: 'Bonjour, mon ami.', from: 'en', to: 'fr', writer: 'man', reader: 'woman', handle: {} });
-    lm.ready = true; lm.stored = true; lm.dtype = llm.status().dtype || '';
-    bar.value = 100;
-    llmStatus(t('llmReady', Math.round((performance.now() - t0) / 1000), lm.dtype), 'ok');
+    lm.ready = true; lm.stored = true; lm.dtype = llm.status().dtype || ''; lm.secs = Math.round((performance.now() - t0) / 1000);
     const d = $('ldetails'); if (d) d.open = false;
   } catch (e) {
     console.error(e);
     lm.failed = true; lm.ready = false;
+    lm.loading = false; renderLlm();
     llmStatus(t('llmFail', (e && e.message) || String(e)), 'err');
-  } finally {
-    lm.loading = false; btn.disabled = false;
-    btn.textContent = lm.stored ? t('llmStart') : t('llmPrepare');
     refreshModelManager();
+    return;
   }
+  lm.loading = false; renderLlm(); refreshModelManager();
 }
 async function autoStartLlm() {
-  try { lm.stored = await llm.isStored(); } catch { lm.stored = false; }
-  const b = $('lprep'); if (b) b.textContent = lm.stored ? t('llmStart') : t('llmPrepare');
-  if (lm.stored && !lm.ready && !lm.loading && VER === '2') prepareLlm();
+  try { lm.stored = await llm.isStored(); lm.partial = !lm.stored && (await llm.hasPartial()); } catch { lm.stored = false; }
+  renderLlm();
+  if (lm.stored && !lm.ready && !lm.loading && VER === '2' && llm.DL.state !== 'running') startModel();
+}
+let blockRegistered = false;
+function registerDownloadBlock() {
+  if (blockRegistered) return; blockRegistered = true;
+  SUI.block(() => (llm.downloading() ? {
+    title: t('dlLeaveTitle'), text: t('dlLeaveText'), stayId: 'stay',
+    buttons: [{ id: 'pause', label: t('dlPauseLeave'), kind: 'quiet' }, { id: 'stay', label: t('dlStay'), kind: 'primary' }],
+    onChoose: (id) => { if (id === 'pause') { llm.pause(); return true; } return false; }
+  } : null));
 }
 
 // ---------- manage stored models ----------

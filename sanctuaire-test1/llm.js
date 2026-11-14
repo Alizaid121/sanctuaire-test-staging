@@ -1,23 +1,25 @@
 /* Sanctuaire Test 1 v2.2.0: the on-phone language model that fixes Bergamot's draft.
-   Model: Gemma 3 270M (instruction-tuned, ONNX, 4-bit) run on the PROCESSOR (WebAssembly), the same path on every phone.
+   Model: Gemma 3 270M (instruction-tuned, ONNX, 8-bit) run on the PROCESSOR (WebAssembly), the same path on every phone.
    Nothing typed is ever sent anywhere: only the model files are downloaded (from Hugging Face), once.
    Parts: 1 the downloader that can resume, 2 loading, 3 the "fix the draft" step, 4 stored files (list, delete, save, load). */
 
 export const MODEL = {
   id: 'onnx-community/gemma-3-270m-it-ONNX',
   host: 'https://huggingface.co/',
-  dtypes: ['q4', 'q4f16', 'q8'],                 // tried in this order until one exists
-  smallFiles: ['config.json', 'generation_config.json', 'tokenizer.json', 'tokenizer_config.json'],
-  label: 'Gemma 3 270M (4-bit)',
+    smallFiles: ['config.json', 'generation_config.json', 'tokenizer.json', 'tokenizer_config.json'],
+  label: 'Gemma 3 270M (8-bit)',
 };
 const CACHE_NAME = 'transformers-cache';
-const CHUNK = 8 * 1024 * 1024;
+const CHUNK = 4 * 1024 * 1024;
 const RUNTIME = new URL('./vendor/llm/', import.meta.url).href;
 
 const state = { tf: null, tokenizer: null, model: null, dtype: null, loading: null, lastError: '' };
 export const status = () => ({ ready: !!state.model, loading: !!state.loading, dtype: state.dtype, error: state.lastError });
 
-// ---------- 1. a download that survives a lost connection ----------
+// ---------- 1. downloading: our own code, with pause, continue and cancel, that survives a lost connection ----------
+// The files are fetched in parts of 4 MB and every finished part is kept on the phone, so a stop (pause, lost connection,
+// leaving the page, closing the app) never costs more than the part that was running. A finished file is put in the browser's
+// cache under the address the engine will ask for, so loading the model later needs no download at all.
 const IDB = 'sanctuaire-llm-chunks';
 function idb() {
   return new Promise((res, rej) => {
@@ -39,62 +41,162 @@ async function idbDo(mode, fn) {
 const idbPut = (k, v) => idbDo('readwrite', (s) => s.put(v, k));
 const idbGet = (k) => idbDo('readonly', (s) => s.get(k));
 const idbDelPrefix = (prefix) => idbDo('readwrite', (s) => { s.delete(IDBKeyRange.bound(prefix, prefix + '\uffff')); });
+const idbKeys = () => idbDo('readonly', (s) => s.getAllKeys());
+const idbDelKey = (k) => idbDo('readwrite', (s) => { s.delete(k); });
 
-let progressCb = null;                                   // set while loading: ({ file, loaded, total, allLoaded })
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-async function online() { if (navigator.onLine === false) await new Promise((r) => window.addEventListener('online', r, { once: true })); }
+const fileUrl = (name) => `${MODEL.host}${MODEL.id}/resolve/main/${name}`;
+const nameOf = (url) => (url.split('/resolve/main/')[1] || url);
+const abortErr = () => new DOMException('Aborted', 'AbortError');
+const sleep = (ms, signal) => new Promise((res, rej) => {
+  const t = setTimeout(res, ms);
+  if (signal) signal.addEventListener('abort', () => { clearTimeout(t); rej(abortErr()); }, { once: true });
+});
+async function online(signal) { while (navigator.onLine === false) await sleep(1000, signal); }
 
-async function fetchRange(url, start, end, signal) {
+// What will be downloaded, with the real sizes (from Hugging Face's file list). Only a processor-friendly 8-bit file is used:
+// the 4-bit files need an operation that the processor engine does not have (this is what stopped the first try).
+const VARIANTS = [['q8', 'onnx/model_quantized.onnx'], ['int8', 'onnx/model_int8.onnx'], ['uint8', 'onnx/model_uint8.onnx']];
+export async function plan() {
+  let list = null;
+  try {
+    const r = await fetch(`${MODEL.host}api/models/${MODEL.id}/tree/main?recursive=true`);
+    if (r.ok) list = (await r.json()).filter((e) => e.type === 'file');
+  } catch { list = null; }
+  const sizeOf = (e) => (e && e.lfs && e.lfs.size) || (e && e.size) || 0;
+  const head = async (name) => { try { const r = await fetch(fileUrl(name), { method: 'HEAD' }); return r.ok ? Number(r.headers.get('content-length')) || 0 : 0; } catch { return 0; } };
+  let dtype = null, files = [];
+  for (const [d, base] of VARIANTS) {
+    if (list) {
+      const main = list.find((e) => e.path === base);
+      if (!main) continue;
+      dtype = d;
+      files = [{ name: base, size: sizeOf(main) }, ...list.filter((e) => e.path.startsWith(base + '_data')).map((e) => ({ name: e.path, size: sizeOf(e) }))];
+    } else {
+      const n = await head(base);
+      if (!n) continue;
+      dtype = d; files = [{ name: base, size: n }];
+    }
+    break;
+  }
+  if (!dtype) throw new Error('This model has no 8-bit file for the processor, so nothing was downloaded.');
+  const small = list
+    ? list.filter((e) => !e.path.includes('/') && /\.(json|jinja)$/.test(e.path) && sizeOf(e) < 8e6).map((e) => ({ name: e.path, size: sizeOf(e) }))
+    : MODEL.smallFiles.map((name) => ({ name, size: 0 }));
+  const all = [...small, ...files];
+  if (all.some((f) => !f.size && !list)) { /* sizes unknown: the bar then counts files */ }
+  return { dtype, files: all, total: all.reduce((s, f) => s + f.size, 0), exact: !!list };
+}
+
+export const DL = { state: 'idle', loaded: 0, total: 0, file: '', error: '', plan: null, resumable: true };   // idle | running | paused | done
+const listeners = new Set();
+export const onDownload = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
+const emit = () => listeners.forEach((fn) => { try { fn(DL); } catch { /* ignore */ } });
+let ctrl = null, cancelling = false, running = null;
+
+// One part (or the whole file when the server ignores part requests). onPart(bytesOfThisPart) is called while it arrives.
+async function fetchPart(url, start, end, signal, onPart) {
   let lastErr;
   for (let a = 0; a < 6; a++) {
     try {
-      await online();
+      await online(signal);
       const r = await fetch(url, { headers: { Range: `bytes=${start}-${end}` }, signal });
-      if (r.status !== 206) throw new Error(`HTTP ${r.status} for a part of the file`);
-      return await r.blob();
-    } catch (e) { lastErr = e; if (signal && signal.aborted) throw e; await wait(Math.min(1000 * 2 ** a, 15000)); }
+      if (r.status === 200 && start === 0) { const e = new Error('no-range'); e.noRange = true; r.body && r.body.cancel && r.body.cancel().catch(() => {}); throw e; }
+      if (r.status !== 206) throw new Error(`HTTP ${r.status}`);
+      const chunks = []; let got = 0;
+      const reader = r.body.getReader();
+      for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; onPart(got); }
+      return new Blob(chunks, { type: 'application/octet-stream' });
+    } catch (e) {
+      if (e.noRange || (signal && signal.aborted)) throw e;
+      lastErr = e; await sleep(Math.min(1000 * 2 ** a, 15000), signal);
+    }
   }
-  throw lastErr;
+  const e = new Error(`The connection was lost (${(lastErr && lastErr.message) || 'no answer'}). Press Continue when it is back; nothing is lost.`);
+  throw e;
 }
-
-let doneBytes = 0;                                       // bytes of finished files in this load (for the overall bar)
-export async function resumableFetch(input, init) {
-  const url = typeof input === 'string' ? input : (input && input.url) || String(input);
-  const method = (init && init.method) || 'GET';
-  const mine = url.startsWith(MODEL.host + MODEL.id + '/resolve/');
-  if (!mine || method !== 'GET') return fetch(input, init);
-  const name = url.split('/resolve/')[1].split('/').slice(1).join('/');
-  let total = 0;
-  try {
-    const probe = await fetch(url, { headers: { Range: 'bytes=0-0' } });
-    const cr = probe.headers.get('content-range');            // "bytes 0-0/12345"
-    if (probe.status === 206 && cr && /\/(\d+)$/.test(cr)) total = Number(cr.match(/\/(\d+)$/)[1]);
-    try { await probe.arrayBuffer(); } catch { /* ignore */ }
-  } catch { total = 0; }
-  if (!total || total < CHUNK / 2) {                           // small file, or the server does not support ranges: plain download
-    const r = await fetch(url);
-    if (progressCb && r.ok) { const n = Number(r.headers.get('content-length')) || 0; doneBytes += n; progressCb({ file: name, loaded: n, total: n, allLoaded: doneBytes }); }
-    return r;
-  }
-  const n = Math.ceil(total / CHUNK), key = (i) => `${url}|${String(i).padStart(5, '0')}`;
-  const have = (await idbGet(`${url}|meta`)) || null;
-  if (!have || have.total !== total) { await idbDelPrefix(`${url}|`); await idbPut(`${url}|meta`, { total }); }
-  const parts = [];
-  let loaded = 0;
+async function wholeFile(url, size, signal, onBytes) {      // no resume possible: the server did not accept part requests
+  DL.resumable = false;
+  await online(signal);
+  const r = await fetch(url, { signal });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const chunks = []; let got = 0; const reader = r.body.getReader();
+  for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; onBytes(got); }
+  return new Blob(chunks, { type: 'application/octet-stream' });
+}
+async function downloadFile(url, size, onBytes, signal) {
+  if (!size) return wholeFile(url, size, signal, onBytes);
+  const n = Math.ceil(size / CHUNK), key = (i) => `${url}|${String(i).padStart(6, '0')}`;
+  const meta = await idbGet(`${url}|meta`);
+  if (!meta || meta.size !== size) { await idbDelPrefix(`${url}|`); await idbPut(`${url}|meta`, { size }); }
+  const parts = []; let loaded = 0;
   for (let i = 0; i < n; i++) {
+    const want = Math.min(size, (i + 1) * CHUNK) - i * CHUNK;
     let b = await idbGet(key(i));
-    if (!b) {
-      b = await fetchRange(url, i * CHUNK, Math.min(total, (i + 1) * CHUNK) - 1);
+    if (!b || b.size !== want) {
+      try { b = await fetchPart(url, i * CHUNK, i * CHUNK + want - 1, signal, (g) => onBytes(loaded + g)); }
+      catch (e) { if (e.noRange) { await idbDelPrefix(`${url}|`); return wholeFile(url, size, signal, onBytes); } throw e; }
+      if (b.size !== want) throw new Error('A part of the file arrived with the wrong size, press Continue to try that part again.');
       await idbPut(key(i), b);
     }
-    parts.push(b); loaded += b.size;
-    if (progressCb) progressCb({ file: name, loaded, total, allLoaded: doneBytes + loaded });
+    parts.push(b); loaded += b.size; onBytes(loaded);
   }
-  doneBytes += total;
   const blob = new Blob(parts, { type: 'application/octet-stream' });
-  idbDelPrefix(`${url}|`).catch(() => {});
-  return new Response(blob, { status: 200, headers: { 'Content-Length': String(total), 'Content-Type': 'application/octet-stream' } });
+  if (blob.size !== size) { await idbDelPrefix(`${url}|`); throw new Error('The file has the wrong size after joining its parts. Press Continue to download it again.'); }
+  return blob;
 }
+
+// Removes stored files of this model that this plan does not use (for example the 4-bit file of the first try) and their parts.
+async function dropOtherFiles(p) {
+  const keep = new Set(p.files.map((f) => f.name));
+  try {
+    const c = await caches.open(CACHE_NAME);
+    for (const req of await c.keys()) if (req.url.includes(`/${MODEL.id}/`) && !keep.has(nameOf(req.url))) await c.delete(req);
+  } catch { /* ignore */ }
+  try {
+    const keepUrls = p.files.map((f) => fileUrl(f.name));
+    for (const k of await idbKeys()) if (!keepUrls.some((u) => String(k).startsWith(u + '|'))) await idbDelKey(k);
+  } catch { /* ignore */ }
+}
+
+export function download() {
+  if (running) return running;
+  ctrl = new AbortController(); cancelling = false;
+  DL.state = 'running'; DL.error = ''; DL.resumable = true; emit();
+  const signal = ctrl.signal;
+  running = (async () => {
+    try {
+      const p = DL.plan || (DL.plan = await plan());
+      DL.total = p.total; emit();
+      await dropOtherFiles(p);
+      const cache = await caches.open(CACHE_NAME);
+      let done = 0;
+      for (const f of p.files) {
+        const url = fileUrl(f.name); DL.file = f.name;
+        if (await cache.match(url)) { done += f.size; DL.loaded = done; emit(); continue; }
+        const blob = await downloadFile(url, f.size, (l) => { DL.loaded = done + l; emit(); }, signal);
+        await cache.put(url, new Response(blob, { status: 200, headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(blob.size) } }));
+        await idbDelPrefix(`${url}|`);
+        done += blob.size; DL.loaded = done; emit();
+      }
+      DL.state = 'done';
+    } catch (e) {
+      if (cancelling) { DL.state = 'idle'; DL.loaded = 0; DL.plan = null; }
+      else if (signal.aborted) DL.state = 'paused';
+      else { DL.state = 'paused'; DL.error = (e && e.message) || String(e); if (!DL.plan) DL.state = 'idle'; }
+    } finally { running = null; emit(); }
+    return DL;
+  })();
+  return running;
+}
+export function pause() { if (ctrl && DL.state === 'running') ctrl.abort(); }
+export async function cancel() {
+  cancelling = true;
+  if (running) { ctrl.abort(); try { await running; } catch { /* ignore */ } }
+  await deleteStored();
+  DL.state = 'idle'; DL.loaded = 0; DL.error = ''; DL.plan = null; emit();
+}
+export const downloading = () => DL.state === 'running';
+export async function hasPartial() { try { return (await idbKeys()).some((k) => String(k).includes('|0000')); } catch { return false; } }
 
 // ---------- 2. loading ----------
 // The runtime files are ours (vendor/llm/). Two of the library's imports were pointed at our own copy of the engine (see VERSIONS.txt),
@@ -105,7 +207,7 @@ async function wasmBlobUrl() {
     let lastErr;
     for (let a = 0; a < 4; a++) {
       try { await online(); const r = await fetch(`${RUNTIME}ort-wasm-simd-threaded.asyncify.wasm.${n}`); if (!r.ok) throw new Error(`HTTP ${r.status} for the program file`); parts.push(await r.blob()); lastErr = null; break; }
-      catch (e) { lastErr = e; await wait(1000 * 2 ** a); }
+      catch (e) { lastErr = e; await sleep(1000 * 2 ** a); }
     }
     if (lastErr) throw lastErr;
   }
@@ -121,62 +223,49 @@ async function runtime() {
   oenv.wasm.wasmPaths = { mjs: RUNTIME + 'ort-wasm-simd-threaded.asyncify.mjs', wasm: await wasmBlobUrl() };
   const tf = await import('./vendor/llm/transformers.web.min.js');
   const env = tf.env;
-  env.allowLocalModels = false; env.allowRemoteModels = true;
+  env.allowLocalModels = false; env.allowRemoteModels = true;          // remote only for tiny text files that might be missing
   env.useBrowserCache = true; env.cacheKey = CACHE_NAME;
   env.useWasmCache = false;                                            // the engine file is already in memory
-  env.fetch = resumableFetch;
   state.tf = tf;
   return tf;
 }
 
-// Approximate download size, from the servers' answers to small requests (shown before the download starts).
-export async function downloadSize() {
-  let files = 0, bytes = 0, unknown = 0;
-  const names = [...MODEL.smallFiles, `onnx/model_${MODEL.dtypes[0]}.onnx`, `onnx/model_${MODEL.dtypes[0]}.onnx_data`];
-  await Promise.all(names.map(async (f) => {
-    try {
-      const r = await fetch(`${MODEL.host}${MODEL.id}/resolve/main/${f}`, { method: 'HEAD' });
-      if (r.ok) { files++; const n = Number(r.headers.get('content-length')); if (n) bytes += n; else unknown++; }
-    } catch { unknown++; }
-  }));
-  return { files, bytes, unknown };
+async function cachedNames() {
+  try { const c = await caches.open(CACHE_NAME); return (await c.keys()).map((k) => k.url).filter((u) => u.includes(`/${MODEL.id}/`)).map(nameOf); } catch { return []; }
 }
-
-export async function isStored() {
-  try {
-    const c = await caches.open(CACHE_NAME), keys = await c.keys();
-    const mine = keys.map((k) => k.url).filter((u) => u.includes(`/${MODEL.id}/`));
-    return mine.some((u) => /\/onnx\/model[^/]*\.onnx$/.test(u)) && mine.some((u) => u.endsWith('/tokenizer.json'));
-  } catch { return false; }
+export async function storedDtype() {
+  const names = await cachedNames();
+  for (const [d, base] of VARIANTS) if (names.includes(base)) return d;
+  return null;
 }
+export async function isStored() { return !!(await storedDtype()) && (await cachedNames()).includes('tokenizer.json'); }
 
-// opts: { onProgress({ file, loaded, total, allLoaded }), onPhase(text) }
+// opts: { onPhase(text) }. Needs the files to be stored already (download() first).
 export function load(opts = {}) {
   if (state.model) return Promise.resolve(status());
   if (state.loading) return state.loading;
   state.lastError = '';
   state.loading = (async () => {
-    const tf = await runtime();
-    progressCb = opts.onProgress || null; doneBytes = 0;
     try {
+      const dtype = await storedDtype();
+      if (!dtype) throw new Error('The model files are not stored on this phone yet.');
+      const tf = await runtime();
       if (opts.onPhase) opts.onPhase('tokenizer');
       state.tokenizer = await tf.AutoTokenizer.from_pretrained(MODEL.id);
-      let lastErr = null;
-      for (const dtype of MODEL.dtypes) {
-        try {
-          if (opts.onPhase) opts.onPhase('model');
-          state.model = await tf.AutoModelForCausalLM.from_pretrained(MODEL.id, { dtype, device: 'wasm' });
-          state.dtype = dtype; lastErr = null; break;
-        } catch (e) { lastErr = e; if (!/(not find|locate|404|not found)/i.test(String(e && e.message))) break; }
+      if (opts.onPhase) opts.onPhase('model');
+      try { state.model = await tf.AutoModelForCausalLM.from_pretrained(MODEL.id, { dtype, device: 'wasm' }); }
+      catch (e) {
+        if (/Could not find an implementation/i.test(String(e && e.message))) throw new Error(`The engine on this phone cannot run the stored model file (${dtype}). ${e.message}`);
+        throw e;
       }
-      if (lastErr) throw lastErr;
+      state.dtype = dtype;
       if (navigator.storage && navigator.storage.persist) { try { await navigator.storage.persist(); } catch { /* ignore */ } }
       return status();
     } catch (e) {
       state.model = null; state.tokenizer = null;
       state.lastError = (e && e.message) || String(e);
       throw e;
-    } finally { progressCb = null; state.loading = null; }
+    } finally { state.loading = null; }
   })();
   return state.loading;
 }
@@ -266,6 +355,7 @@ export async function deleteStored() {
   const c = await caches.open(CACHE_NAME);
   for (const req of await c.keys()) if (req.url.includes(`/${MODEL.id}/`)) await c.delete(req);
   await idbDelPrefix(MODEL.host).catch(() => {});
+  DL.plan = null;
 }
 
 // One file with everything inside: "SMDL1\n" + JSON line (list of files) + the bytes of each file in order.
@@ -299,4 +389,4 @@ export async function importFile(file) {
   return meta.files.length;
 }
 
-export const __test = { buildPrompt, cleanOutput, resumableFetch };
+export const __test = { buildPrompt, cleanOutput, downloadFile, plan, dropOtherFiles, fileUrl };
