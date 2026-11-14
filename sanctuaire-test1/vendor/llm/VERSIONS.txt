@@ -1,3 +1,8 @@
-@huggingface/transformers 4.3.1 (published 2026-10-06), file dist/transformers.web.min.js (Apache-2.0)
-onnxruntime-web 1.31.0-dev.20260914-8d85527a0 (the exact version transformers 4.3.1 depends on), files ort-wasm-simd-threaded.mjs and .wasm (MIT)
+@huggingface/transformers 4.3.1 (published 2026-10-06), dist/transformers.web.min.js (Apache-2.0)
+  CHANGED in this copy (two import lines, so that no build tool is needed):
+    from "onnxruntime-web/webgpu"  ->  from "./ort.webgpu.bundle.min.mjs"
+    from "onnxruntime-common"      ->  from "./ort.webgpu.bundle.min.mjs"   (only Tensor is used; the bundle contains the same code)
+onnxruntime-web 1.31.0-dev.20260914-8d85527a0 (the exact version transformers 4.3.1 depends on) (MIT):
+  ort.webgpu.bundle.min.mjs, ort-wasm-simd-threaded.asyncify.mjs, and ort-wasm-simd-threaded.asyncify.wasm
+  (26,861,777 bytes) stored as ort-wasm-simd-threaded.asyncify.wasm.part0 + .part1 (cut with `split -b 14000000`, joined again by llm.js before use).
 Model (downloaded by the phone from Hugging Face, not stored in this repo): onnx-community/gemma-3-270m-it-ONNX, Gemma Terms of Use.
