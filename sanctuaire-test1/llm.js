@@ -1,20 +1,23 @@
 /* Sanctuaire Test 1 v2.2.0: the on-phone language model that fixes Bergamot's draft.
-   Model: Gemma 3 270M (instruction-tuned, ONNX, 8-bit) run on the PROCESSOR (WebAssembly), the same path on every phone.
-   Nothing typed is ever sent anywhere: only the model files are downloaded (from Hugging Face), once.
-   Parts: 1 the downloader that can resume, 2 loading, 3 the "fix the draft" step, 4 stored files (list, delete, save, load). */
+   Model: Gemma 3 270M (instruction-tuned) as a GGUF file, run by wllama (llama.cpp compiled for the browser) on the PROCESSOR,
+   the same path on every phone. Nothing typed is ever sent anywhere: only the model file is downloaded (from Hugging Face), once.
+   Why not ONNX: every ONNX file of this model uses an operation (GatherBlockQuantized) that the processor engine does not have.
+   Parts: 1 the downloader (pause, continue, cancel, resumes), 2 loading, 3 the "fix the draft" step, 4 stored files (list, delete, save, load). */
 
 export const MODEL = {
-  id: 'onnx-community/gemma-3-270m-it-ONNX',
+  id: 'bartowski/google_gemma-3-270m-it-GGUF',
+  file: 'google_gemma-3-270m-it-Q8_0.gguf',
   host: 'https://huggingface.co/',
-    smallFiles: ['config.json', 'generation_config.json', 'tokenizer.json', 'tokenizer_config.json'],
-  label: 'Gemma 3 270M (8-bit)',
+  minBytes: 150e6, maxBytes: 450e6,               // the real file is about 285 MB: anything far from that is refused before downloading
+  label: 'Gemma 3 270M (8-bit GGUF)',
 };
-const CACHE_NAME = 'transformers-cache';
+const CACHE_NAME = 'sanctuaire-llm-v1';
+const LEGACY_CACHES = ['transformers-cache'];      // from the ONNX tries: deleted at the first download
 const CHUNK = 4 * 1024 * 1024;
-const RUNTIME = new URL('./vendor/llm/', import.meta.url).href;
+const RUNTIME = new URL('./vendor/wllama/', import.meta.url).href;
 
-const state = { tf: null, tokenizer: null, model: null, dtype: null, loading: null, lastError: '' };
-export const status = () => ({ ready: !!state.model, loading: !!state.loading, dtype: state.dtype, error: state.lastError });
+const state = { Wllama: null, w: null, loading: null, lastError: '' };
+export const status = () => ({ ready: !!state.w, loading: !!state.loading, dtype: state.w ? 'Q8_0' : null, error: state.lastError });
 
 // ---------- 1. downloading: our own code, with pause, continue and cancel, that survives a lost connection ----------
 // The files are fetched in parts of 4 MB and every finished part is kept on the phone, so a stop (pause, lost connection,
@@ -53,38 +56,17 @@ const sleep = (ms, signal) => new Promise((res, rej) => {
 });
 async function online(signal) { while (navigator.onLine === false) await sleep(1000, signal); }
 
-// What will be downloaded, with the real sizes (from Hugging Face's file list). Only a processor-friendly 8-bit file is used:
-// the 4-bit files need an operation that the processor engine does not have (this is what stopped the first try).
-const VARIANTS = [['q8', 'onnx/model_quantized.onnx'], ['int8', 'onnx/model_int8.onnx'], ['uint8', 'onnx/model_uint8.onnx']];
+// What will be downloaded, with the real size (from Hugging Face's file list). A file whose size is far from the expected one is refused.
 export async function plan() {
-  let list = null;
+  let size = 0, exact = false;
   try {
-    const r = await fetch(`${MODEL.host}api/models/${MODEL.id}/tree/main?recursive=true`);
-    if (r.ok) list = (await r.json()).filter((e) => e.type === 'file');
-  } catch { list = null; }
-  const sizeOf = (e) => (e && e.lfs && e.lfs.size) || (e && e.size) || 0;
-  const head = async (name) => { try { const r = await fetch(fileUrl(name), { method: 'HEAD' }); return r.ok ? Number(r.headers.get('content-length')) || 0 : 0; } catch { return 0; } };
-  let dtype = null, files = [];
-  for (const [d, base] of VARIANTS) {
-    if (list) {
-      const main = list.find((e) => e.path === base);
-      if (!main) continue;
-      dtype = d;
-      files = [{ name: base, size: sizeOf(main) }, ...list.filter((e) => e.path.startsWith(base + '_data')).map((e) => ({ name: e.path, size: sizeOf(e) }))];
-    } else {
-      const n = await head(base);
-      if (!n) continue;
-      dtype = d; files = [{ name: base, size: n }];
-    }
-    break;
-  }
-  if (!dtype) throw new Error('This model has no 8-bit file for the processor, so nothing was downloaded.');
-  const small = list
-    ? list.filter((e) => !e.path.includes('/') && /\.(json|jinja)$/.test(e.path) && sizeOf(e) < 8e6).map((e) => ({ name: e.path, size: sizeOf(e) }))
-    : MODEL.smallFiles.map((name) => ({ name, size: 0 }));
-  const all = [...small, ...files];
-  if (all.some((f) => !f.size && !list)) { /* sizes unknown: the bar then counts files */ }
-  return { dtype, files: all, total: all.reduce((s, f) => s + f.size, 0), exact: !!list };
+    const r = await fetch(`${MODEL.host}api/models/${MODEL.id}/tree/main`);
+    if (r.ok) { const e = (await r.json()).find((x) => x.type === 'file' && x.path === MODEL.file); if (e) { size = (e.lfs && e.lfs.size) || e.size || 0; exact = !!size; } }
+  } catch { /* try the other way */ }
+  if (!size) { try { const r = await fetch(fileUrl(MODEL.file), { method: 'HEAD' }); if (r.ok) size = Number(r.headers.get('content-length')) || 0; } catch { /* ignore */ } }
+  if (!size) throw new Error('The size of the model file could not be read, so nothing was downloaded. Try again.');
+  if (size < MODEL.minBytes || size > MODEL.maxBytes) throw new Error(`The model file has an unexpected size (${Math.round(size / 1048576)} MB), so nothing was downloaded.`);
+  return { dtype: 'Q8_0', files: [{ name: MODEL.file, size }], total: size, exact };
 }
 
 export const DL = { state: 'idle', loaded: 0, total: 0, file: '', error: '', plan: null, resumable: true };   // idle | running | paused | done
@@ -147,6 +129,7 @@ async function downloadFile(url, size, onBytes, signal) {
 
 // Removes stored files of this model that this plan does not use (for example the 4-bit file of the first try) and their parts.
 async function dropOtherFiles(p) {
+  for (const n of LEGACY_CACHES) { try { await caches.delete(n); } catch { /* ignore */ } }
   const keep = new Set(p.files.map((f) => f.name));
   try {
     const c = await caches.open(CACHE_NAME);
@@ -174,6 +157,7 @@ export function download() {
         const url = fileUrl(f.name); DL.file = f.name;
         if (await cache.match(url)) { done += f.size; DL.loaded = done; emit(); continue; }
         const blob = await downloadFile(url, f.size, (l) => { DL.loaded = done + l; emit(); }, signal);
+        if ((await blob.slice(0, 4).text()) !== 'GGUF') { await idbDelPrefix(`${url}|`); throw new Error('The downloaded file is not a model file (wrong header). It was discarded; press Continue to download it again.'); }
         await cache.put(url, new Response(blob, { status: 200, headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(blob.size) } }));
         await idbDelPrefix(`${url}|`);
         done += blob.size; DL.loaded = done; emit();
@@ -199,70 +183,38 @@ export const downloading = () => DL.state === 'running';
 export async function hasPartial() { try { return (await idbKeys()).some((k) => String(k).includes('|0000')); } catch { return false; } }
 
 // ---------- 2. loading ----------
-// The runtime files are ours (vendor/llm/). Two of the library's imports were pointed at our own copy of the engine (see VERSIONS.txt),
-// and the 27 MB processor file is kept in two parts because GitHub's web upload refuses single files above 25 MB.
-async function wasmBlobUrl() {
-  const parts = [];
-  for (const n of ['part0', 'part1']) {
-    let lastErr;
-    for (let a = 0; a < 4; a++) {
-      try { await online(); const r = await fetch(`${RUNTIME}ort-wasm-simd-threaded.asyncify.wasm.${n}`); if (!r.ok) throw new Error(`HTTP ${r.status} for the program file`); parts.push(await r.blob()); lastErr = null; break; }
-      catch (e) { lastErr = e; await sleep(1000 * 2 ** a); }
-    }
-    if (lastErr) throw lastErr;
-  }
-  return URL.createObjectURL(new Blob(parts, { type: 'application/wasm' }));
-}
 async function runtime() {
-  if (state.tf) return state.tf;
-  const ort = await import('./vendor/llm/ort.webgpu.bundle.min.mjs');   // the same module that transformers.web.min.js imports
-  const oenv = ort.env || (ort.default && ort.default.env);
-  if (!oenv || !oenv.wasm) throw new Error('The language-model engine did not start (no WebAssembly settings).');
-  oenv.wasm.numThreads = 1;                                            // this site cannot use several threads (no cross-origin isolation)
-  oenv.wasm.proxy = false;
-  oenv.wasm.wasmPaths = { mjs: RUNTIME + 'ort-wasm-simd-threaded.asyncify.mjs', wasm: await wasmBlobUrl() };
-  const tf = await import('./vendor/llm/transformers.web.min.js');
-  const env = tf.env;
-  env.allowLocalModels = false; env.allowRemoteModels = true;          // remote only for tiny text files that might be missing
-  env.useBrowserCache = true; env.cacheKey = CACHE_NAME;
-  env.useWasmCache = false;                                            // the engine file is already in memory
-  state.tf = tf;
-  return tf;
+  if (state.Wllama) return state.Wllama;
+  const mod = await import('./vendor/wllama/index.js');
+  state.Wllama = mod.Wllama || (mod.default && mod.default.Wllama);
+  if (!state.Wllama) throw new Error('The language-model engine did not start (wllama was not found).');
+  return state.Wllama;
 }
-
 async function cachedNames() {
   try { const c = await caches.open(CACHE_NAME); return (await c.keys()).map((k) => k.url).filter((u) => u.includes(`/${MODEL.id}/`)).map(nameOf); } catch { return []; }
 }
-export async function storedDtype() {
-  const names = await cachedNames();
-  for (const [d, base] of VARIANTS) if (names.includes(base)) return d;
-  return null;
-}
-export async function isStored() { return !!(await storedDtype()) && (await cachedNames()).includes('tokenizer.json'); }
+export async function isStored() { return (await cachedNames()).includes(MODEL.file); }
 
-// opts: { onPhase(text) }. Needs the files to be stored already (download() first).
-export function load(opts = {}) {
-  if (state.model) return Promise.resolve(status());
+// Needs the file to be stored already (download() first).
+export function load() {
+  if (state.w) return Promise.resolve(status());
   if (state.loading) return state.loading;
   state.lastError = '';
   state.loading = (async () => {
+    let w = null;
     try {
-      const dtype = await storedDtype();
-      if (!dtype) throw new Error('The model files are not stored on this phone yet.');
-      const tf = await runtime();
-      if (opts.onPhase) opts.onPhase('tokenizer');
-      state.tokenizer = await tf.AutoTokenizer.from_pretrained(MODEL.id);
-      if (opts.onPhase) opts.onPhase('model');
-      try { state.model = await tf.AutoModelForCausalLM.from_pretrained(MODEL.id, { dtype, device: 'wasm' }); }
-      catch (e) {
-        if (/Could not find an implementation/i.test(String(e && e.message))) throw new Error(`The engine on this phone cannot run the stored model file (${dtype}). ${e.message}`);
-        throw e;
-      }
-      state.dtype = dtype;
+      const c = await caches.open(CACHE_NAME), res = await c.match(fileUrl(MODEL.file));
+      if (!res) throw new Error('The model file is not stored on this phone yet.');
+      const blob = await res.blob();
+      const Wllama = await runtime();
+      w = new Wllama({ default: RUNTIME + 'wllama.wasm' }, { suppressNativeLog: true });
+      await w.loadModel([blob], { n_ctx: 1024, n_threads: 1, n_gpu_layers: 0 });    // processor only, one thread (no cross-origin isolation here)
+      state.w = w;
       if (navigator.storage && navigator.storage.persist) { try { await navigator.storage.persist(); } catch { /* ignore */ } }
       return status();
     } catch (e) {
-      state.model = null; state.tokenizer = null;
+      try { if (w) await w.exit(); } catch { /* ignore */ }
+      state.w = null;
       state.lastError = (e && e.message) || String(e);
       throw e;
     } finally { state.loading = null; }
@@ -270,8 +222,8 @@ export function load(opts = {}) {
   return state.loading;
 }
 export async function unload() {
-  try { if (state.model && state.model.dispose) await state.model.dispose(); } catch { /* ignore */ }
-  state.model = null; state.tokenizer = null; state.dtype = null;
+  try { if (state.w) await state.w.exit(); } catch { /* ignore */ }
+  state.w = null;
 }
 
 // ---------- 3. fix the draft ----------
@@ -314,22 +266,23 @@ export function cleanOutput(raw, draft) {
   return s;
 }
 
-export function canImprove() { return !!state.model; }
-// Returns { text, ms, status } where status is 'improved' | 'unchanged' | 'failed'. handle.cancel() stops it ('skipped' is set by the caller).
+export function canImprove() { return !!state.w; }
+// Returns { text, ms, status } where status is 'improved' | 'unchanged' | 'failed' | 'skipped'. handle.cancel() stops it.
 export async function improve({ text, draft, from, to, writer, reader, onToken, handle }) {
-  if (!state.model) throw new Error('The language model is not ready.');
-  const tf = state.tf, tok = state.tokenizer, t0 = performance.now();
+  if (!state.w) throw new Error('The language model is not ready.');
+  const t0 = performance.now(), ac = new AbortController();
+  if (handle) handle.cancel = () => { handle.cancelled = true; ac.abort(); };
   const prompt = buildPrompt({ text, draft, from, to, writer, reader });
-  const inputs = tok.apply_chat_template([{ role: 'user', content: prompt }], { add_generation_prompt: true, return_dict: true });
-  const inLen = inputs.input_ids.dims.at(-1);
-  const stop = tf.InterruptableStoppingCriteria ? new tf.InterruptableStoppingCriteria() : null;
-  if (handle) handle.cancel = () => { handle.cancelled = true; if (stop) stop.interrupt(); };
   const maxNew = Math.min(400, Math.max(40, Math.round(draft.length * 0.9) + 40));
-  let streamed = '';
-  const streamer = tf.TextStreamer && onToken ? new tf.TextStreamer(tok, { skip_prompt: true, skip_special_tokens: true, callback_function: (x) => { streamed += x; onToken(streamed); } }) : undefined;
-  const out = await state.model.generate({ ...inputs, max_new_tokens: maxNew, do_sample: false, repetition_penalty: 1.05, ...(stop ? { stopping_criteria: [stop] } : {}), ...(streamer ? { streamer } : {}) });
-  const seq = out.slice(null, [inLen, null]);
-  const raw = tok.batch_decode(seq, { skip_special_tokens: true })[0];
+  let raw = '';
+  try {
+    const it = await state.w.createChatCompletion({ messages: [{ role: 'user', content: prompt }], max_tokens: maxNew, temperature: 0, stream: true, abortSignal: ac.signal });
+    for await (const ch of it) {
+      const c = ch && ch.choices && ch.choices[0];
+      const d = (c && ((c.delta && c.delta.content) || c.text)) || '';
+      if (d) { raw += d; if (onToken) onToken(raw); }
+    }
+  } catch (e) { if (!(handle && handle.cancelled) && !(e && e.name === 'AbortError')) throw e; }
   const ms = Math.round(performance.now() - t0);
   if (handle && handle.cancelled) return { text: draft, ms, status: 'skipped' };
   const clean = cleanOutput(raw, draft);
@@ -354,6 +307,7 @@ export async function deleteStored() {
   await unload();
   const c = await caches.open(CACHE_NAME);
   for (const req of await c.keys()) if (req.url.includes(`/${MODEL.id}/`)) await c.delete(req);
+  for (const n of LEGACY_CACHES) { try { await caches.delete(n); } catch { /* ignore */ } }
   await idbDelPrefix(MODEL.host).catch(() => {});
   DL.plan = null;
 }
