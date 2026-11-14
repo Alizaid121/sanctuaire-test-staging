@@ -321,6 +321,9 @@ const EXTRA = {
     retestTitle: 'Test this sentence again?', retestText: 'This will erase the previous result of this test: the translation and the back-translation.',
     retestTextReviewed: 'This will erase the previous result of this test: the translation, the back-translation and the reviews already given.', retestOk: 'Test again',
     testBusy: 'A test is already running. Wait until it finishes.',
+    testWaitTranslator: 'The Test button unlocks when the translator on this phone is ready (see "Translator on this phone").',
+    testWaitModel: 'The Test button unlocks when the language model is ready (see "Language model on this phone").',
+    testWaitModelBusy: 'The language model is still downloading or starting. The Test button unlocks when it is ready.',
     confirmReplaceTitle: 'Replace this sentence?', confirmReplaceOk: 'Replace', delTitle: 'Delete this entry?', delOk: 'Delete',
     resetTitle: 'Reset this version?', resetOk: 'Delete everything', redoTitle: 'Download again?', redoOk: 'Download again',
     confirmReset: (v) => `Delete ALL entries of version ${v} from the sheet? They stay in the history table. The other version is not touched.`,
@@ -364,6 +367,9 @@ const EXTRA = {
     retestTitle: 'Tester à nouveau cette phrase ?', retestText: 'Cela effacera le résultat précédent de ce test : la traduction et la traduction retour.',
     retestTextReviewed: 'Cela effacera le résultat précédent de ce test : la traduction, la traduction retour et les évaluations déjà données.', retestOk: 'Tester à nouveau',
     testBusy: 'Un test est déjà en cours. Attends qu\'il se termine.',
+    testWaitTranslator: 'Le bouton Tester se débloque quand le traducteur de ce téléphone est prêt (voir « Traducteur sur ce téléphone »).',
+    testWaitModel: 'Le bouton Tester se débloque quand le modèle de langage est prêt (voir « Modèle de langage sur ce téléphone »).',
+    testWaitModelBusy: 'Le modèle de langage se télécharge ou démarre encore. Le bouton Tester se débloque quand il est prêt.',
     confirmReplaceTitle: 'Remplacer cette phrase ?', confirmReplaceOk: 'Remplacer', delTitle: 'Supprimer cette entrée ?', delOk: 'Supprimer',
     resetTitle: 'Réinitialiser cette version ?', resetOk: 'Tout supprimer', redoTitle: 'Télécharger à nouveau ?', redoOk: 'Télécharger à nouveau',
     confirmReset: (v) => `Supprimer TOUTES les entrées de la version ${v} de la feuille ? Elles restent dans l\'historique. L\'autre version n\'est pas touchée.`,
@@ -417,7 +423,17 @@ let VER = (() => { try { return localStorage.getItem(VER_KEY) === '1' ? '1' : '2
 const FN = (n) => (VER === '2' ? 't1v2_' : 't1_') + n;
 const lm = { ready: false, failed: false, stored: false, loading: false, dtype: '' };
 let testingNow = false;                                  // one test at a time: the language model and the translator do one job at once
-const setTestButtons = (off) => document.querySelectorAll('button[data-testbtn]').forEach((x) => { x.disabled = off; });
+// The Test button is locked until everything it needs is ready (translator and, in version 2, the language model), and while a test runs.
+function testReadiness() {
+  if (!tr.ready) return t('testWaitTranslator');
+  if (VER === '2' && !lm.ready) return t(lm.loading || llm.downloading() ? 'testWaitModelBusy' : 'testWaitModel');
+  return '';
+}
+function updateTestLock() {
+  const why = testReadiness();
+  document.querySelectorAll('button[data-testbtn]').forEach((x) => { x.disabled = testingNow || !!why; });
+  document.querySelectorAll('[data-testhint]').forEach((h) => { h.textContent = why; h.classList.toggle('hidden', !why); });
+}
 
 // ---------- database calls ----------
 async function rpc(fn, args) {
@@ -746,7 +762,7 @@ async function prepareTranslator(opts = {}) {
   const btn = $('tprep'), redo = $('tredo');
   btn.disabled = true; redo.disabled = true; btn.textContent = t('preparing');
   $('tfiles').textContent = '';
-  tr.ready = false; tr.downloaded = 0;
+  tr.ready = false; updateTestLock(); tr.downloaded = 0;
   tr.engineKind = $('tengine').value;
   tr.beam = Number($('tbeam').value);
   try { localStorage.setItem(TR_SETTINGS, JSON.stringify({ engine: tr.engineKind, beam: tr.beam })); } catch { /* ignore */ }
@@ -777,7 +793,7 @@ async function prepareTranslator(opts = {}) {
     await runTranslate('Hello, how are you?', 'en', 'fr');
     await runTranslate('Bonjour, comment allez-vous ?', 'fr', 'en');
     tr.lex = !!(MODEL_STORE['en>fr'].lex && MODEL_STORE['fr>en'].lex);
-    tr.ready = true;
+    tr.ready = true; updateTestLock();
     tr.cached = await store.isComplete();
     if (tr.downloaded > 0) await store.persist();   // ask the browser to keep the stored models
     const secs = Math.round((performance.now() - t0) / 1000);
@@ -923,6 +939,7 @@ function renderSheet() {
   }
   window.scrollTo(0, scrollY);
   renderAdmin();
+  updateTestLock();
 }
 
 function renderCategory(cat) {
@@ -1108,7 +1125,7 @@ function mineSlot(cat, n, item) {
   const sv = SUI.save(saveBtn);
   const upd = () => sv.set(ta.value.trim() !== (item ? item.source_text : ''));
   ta.addEventListener('input', upd); upd();
-  root.append(el('div', { class: 'row' }, saveBtn, testBtn), box);
+  root.append(el('div', { class: 'row' }, saveBtn, testBtn), el('div', { class: 'muted hidden', 'data-testhint': '1', role: 'status' }), box);
   const live = liveBox(root);
 
   const confirmIfReviewed = async () => !(item && (item.translation_rating || item.back_rating)) || await askReplace();
@@ -1135,11 +1152,10 @@ function mineSlot(cat, n, item) {
     if (testingNow) { setMsg(box, t('testBusy'), 'err'); return; }
     const text = ta.value.trim();
     if (!text) { setMsg(box, t('error', 'bad_text'), 'err'); return; }
-    if (!tr.ready) { $('tdetails').open = true; setMsg(box, t('needTranslator'), 'err'); $('tpanel').scrollIntoView({ block: 'center' }); return; }
-    if (VER === '2' && !lm.ready && !lm.failed) { const d = $('ldetails'); if (d) d.open = true; setMsg(box, t('needLlm'), 'err'); const p = $('lpanel'); if (p) p.scrollIntoView({ block: 'center' }); return; }
+    { const why = testReadiness(); if (why) { setMsg(box, why, 'err'); return; } }   // the button is locked in this case; this is only a safety net
     if (!(await confirmRetest())) return;
     if (testingNow) return;
-    testingNow = true; setTestButtons(true);
+    testingNow = true; updateTestLock();
     busy++; saveBtn.disabled = true;
     setMsg(box, t('translating'));
     try {
@@ -1157,7 +1173,7 @@ function mineSlot(cat, n, item) {
     } catch (e) {
       console.error(e); live.hide();
       setMsg(box, `${e.message || t('netError')}`, 'err');
-    } finally { testingNow = false; setTestButtons(false); busy--; saveBtn.disabled = false; }
+    } finally { testingNow = false; updateTestLock(); busy--; saveBtn.disabled = false; }
   });
 
   if (item && item.translation) {
@@ -1326,6 +1342,7 @@ function buildLlmPanel() {
 }
 // Shows the state of the download or the model: the right buttons and the progress.
 function renderLlm() {
+  updateTestLock();
   const row = $('lbtns'); if (!row) return;
   const d = llm.DL, bar = $('lbar');
   row.textContent = '';
