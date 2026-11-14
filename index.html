@@ -121,7 +121,6 @@ const TESTS = [
   { id: '1', url: 'sanctuaire-test1/sheet.html' },
   { id: '2', url: 'sanctuaire-test2/' },
   { id: 'cap', url: 'capability-test/capability.html' },
-  { id: 'upd', soon: true },
   { id: 'more', soon: true }
 ];
 
@@ -495,7 +494,7 @@ async function loadReports() {
     box.innerHTML = ['1', '2', 'cap'].map((id) => {
       const arch = r.archives.filter((a) => a.test_id === id);
       const old = arch.map((a) => testRows(id, a.version, a.id, new Date(a.taken_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB')) + (a.label ? `<p class="who2" style="margin:0 0 6px">${esc(a.label)}</p>` : '')).join('');
-      return `<article class="card" style="margin-bottom:14px"><h3>${l.cards[id].t}</h3>${testRows(id, r.current[id] || 1, null)}${old || `<p class="who2">${l.noArch}</p>`}</article>`;
+      return `<article class="card" style="margin-bottom:14px"><h3>${l.cards[id].t}</h3>${testRows(id, r.current[id] || 1, null)}${old || (id === '1' ? '' : `<p class="who2">${l.noArch}</p>`)}</article>`;
     }).join('');
     box.onclick = (e) => { const b = e.target.closest('button[data-test]'); if (b) doExport(b); };
   } catch (e) { box.innerHTML = `<p class="who2 no">${l.rFail}</p>`; }

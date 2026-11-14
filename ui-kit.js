@@ -113,6 +113,19 @@
   var G = null, installed = false, bypass = false;
   function guard(src) { G = src; if (!installed) install(); }
   function dirty() { try { return !!(G && G.isDirty()); } catch (e) { return false; } }
+  // A page can also register a "blocker" for something that must not be cut off by leaving, such as a download.
+  // fn() returns null when nothing is running, or { title, text, buttons: [{ id, label, kind }], stayId, onChoose(id) -> Promise<boolean> } (true = leave).
+  var blockers = [];
+  function block(fn) { blockers.push(fn); if (!installed) install(); }
+  function activeBlock() { for (var i = 0; i < blockers.length; i++) { try { var b = blockers[i](); if (b) return b; } catch (e) { /* ignore */ } } return null; }
+  function needAsk() { return dirty() || !!activeBlock(); }
+  function askAll() {
+    var b = activeBlock();
+    var first = b
+      ? dialog({ title: b.title, text: b.text, hint: b.hint, cancelId: b.stayId, focus: 0, buttons: b.buttons }).then(function (id) { return Promise.resolve(b.onChoose(id)); })
+      : Promise.resolve(true);
+    return first.then(function (ok) { if (!ok) return false; return dirty() ? askLeave() : true; });
+  }
   function askLeave() {
     return dialog({ title: tx('leaveTitle'), text: tx('leaveText'), cancelId: 'stay', focus: 1,
       buttons: [{ id: 'save', label: tx('saveLeave'), kind: 'good' }, { id: 'stay', label: tx('stay'), kind: 'primary' }, { id: 'drop', label: tx('leaveNo'), kind: 'quiet' }] })
@@ -131,29 +144,29 @@
     try { history.pushState({ sui: 1 }, '', location.href); } catch (e) { /* ignore */ }   // one extra entry: the first "back" lands on this same page
     window.addEventListener('popstate', function () {
       if (bypass || asking) return;
-      if (!dirty()) { bypass = true; history.back(); return; }
+      if (!needAsk()) { bypass = true; history.back(); return; }
       asking = true;
-      askLeave().then(function (leave) {
+      askAll().then(function (leave) {
         asking = false;
         if (leave) { bypass = true; history.back(); }
         else { try { history.pushState({ sui: 1 }, '', location.href); } catch (e) { /* ignore */ } }
       });
     });
     document.addEventListener('click', function (ev) {
-      if (bypass || asking || !dirty() || ev.defaultPrevented) return;
+      if (bypass || asking || !needAsk() || ev.defaultPrevented) return;
       var a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null; if (!a) return;
       var u; try { u = new URL(a.getAttribute('href'), location.href); } catch (e) { return; }
       if (u.origin === location.origin && u.pathname === location.pathname && u.search === location.search) return;   // same page
       if (a.target === '_blank' || a.hasAttribute('download')) return;
       ev.preventDefault(); ev.stopPropagation(); asking = true;
-      askLeave().then(function (leave) { asking = false; if (leave) { bypass = true; location.href = u.href; } });
+      askAll().then(function (leave) { asking = false; if (leave) { bypass = true; location.href = u.href; } });
     }, true);
     window.addEventListener('beforeunload', function (ev) {   // best effort: browsers on phones usually ignore it, which is why drafts exist
-      if (!bypass && dirty()) { ev.preventDefault(); ev.returnValue = ''; }
+      if (!bypass && needAsk()) { ev.preventDefault(); ev.returnValue = ''; }
     });
   }
   // for a page's own "leave" code (for example a sign-out button): resolves true when it is fine to go on
-  function canLeave() { if (!dirty()) return Promise.resolve(true); return askLeave().then(function (ok) { if (ok) bypass = true; return ok; }); }
+  function canLeave() { if (!needAsk()) return Promise.resolve(true); return askAll().then(function (ok) { if (ok) bypass = true; return ok; }); }
 
   // ---------- 4. unsaved draft after the app was closed ----------
   var PAGES = { test1: { path: 'sanctuaire-test1/sheet.html', name: 'Test 1' }, test2: { path: 'sanctuaire-test2/index.html', name: 'Test 2' } };
@@ -212,5 +225,5 @@
       });
   }
 
-  window.SUI = { dialog: dialog, confirm: confirmBox, save: save, guard: guard, canLeave: canLeave, recover: recover, autosave: autosave, confirmSignOut: confirmSignOut, pendingPages: pendingPages, clearDraft: clearDraft, tx: tx };
+  window.SUI = { dialog: dialog, confirm: confirmBox, save: save, guard: guard, block: block, canLeave: canLeave, recover: recover, autosave: autosave, confirmSignOut: confirmSignOut, pendingPages: pendingPages, clearDraft: clearDraft, tx: tx };
 })();
