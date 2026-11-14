@@ -227,68 +227,79 @@ export async function unload() {
 }
 
 // ---------- 3. fix the draft ----------
+// A very small model follows worked examples much better than long rules, and it answers the text instead of editing it when it is
+// given rules only (this is what happened in the first run). So the request is a short conversation: two solved examples, then the real one.
+// The first turns are the same on every call of one direction, so the engine can reuse them from its memory instead of reading them again.
 // writer / reader: 'man' or 'woman' (this app is for one man and one woman: the English speaker is the man).
-export function buildPrompt({ text, draft, from, to, writer, reader }) {
-  const name = { en: 'English', fr: 'French' };
-  const rules = to === 'fr'
-    ? [
-      'Always address the reader as "tu" (tu, te, ton, ta, tes, toi), never "vous", in every sentence. Imperatives use "tu" too (for example "Viens", "Prends").',
-      'Idioms and sayings must be replaced by the natural French equivalent with the same meaning, never translated word for word.',
-      `The writer is a ${writer}, the reader is a ${reader}: use the ${reader === 'woman' ? 'feminine' : 'masculine'} form when speaking to the reader (for example "occupée" for a woman) and the ${writer === 'woman' ? 'feminine' : 'masculine'} form for the writer.`,
-      'Keep the tone warm and natural, as between two close people. Keep names, nicknames and words such as "sakina" or greetings like "Assalam o alaikum" unchanged.',
-    ]
-    : [
-      'Write natural, warm English as between two close people. Idioms and sayings must be replaced by the natural English equivalent with the same meaning, never translated word for word.',
-      'Keep names, nicknames and words such as "sakina" or greetings like "Assalam o alaikum" unchanged. Slang and text abbreviations must be translated by meaning (for example "Tkt" means "Don\'t worry").',
-      'Do not repeat words or sentences that are not repeated in the original.',
-    ];
-  const ex = to === 'fr'
-    ? 'Example:\nOriginal (English): You hit the nail on the head, I agree with you.\nDraft translation (French): Vous avez frappé le clou sur la tête, je suis d\'accord avec vous.\nCorrected translation (French): Tu as vu juste, je suis d\'accord avec toi.'
-    : 'Example:\nOriginal (French): Tu te prends la tête pour rien, arrête de tourner autour du pot.\nDraft translation (English): You take your head for nothing, stop turning around the pot.\nCorrected translation (English): You are overthinking this for nothing, stop beating around the bush.';
-  return [
-    `You are a careful ${name[from]}-${name[to]} translation editor for a private chat between two close partners.`,
-    `Improve the draft translation from ${name[from]} to ${name[to]}. Keep the meaning exactly. Do not add, remove or explain anything.`,
-    'Rules:', ...rules.map((r) => `- ${r}`),
-    'Reply with the corrected translation only, nothing else.', '', ex, '',
-    `Original (${name[from]}): ${text}`, `Draft translation (${name[to]}): ${draft}`, `Corrected translation (${name[to]}):`,
-  ].join('\n');
+const LANGN = { en: 'English', fr: 'French' };
+const EXAMPLES = {
+  fr: [
+    { text: 'What are you thinking about? Don\'t worry.', draft: 'À quoi penses-tu ? Ne vous inquiétez pas.', fixed: 'À quoi penses-tu ? Ne t\'inquiète pas.' },
+    { text: 'You hit the nail on the head.', draft: 'Vous avez frappé le clou sur la tête.', fixed: 'Tu as mis dans le mille.' },
+  ],
+  en: [
+    { text: 'À quoi penses-tu ? Ne t\'inquiète pas.', draft: 'What do you think of? Don\'t worry yourself.', fixed: 'What are you thinking about? Don\'t worry.' },
+    { text: 'Tomber dans les pommes.', draft: 'Falling into the apples.', fixed: 'To pass out.' },
+  ],
+};
+function turn(from, to, text, draft, extra) {
+  const rule = to === 'fr'
+    ? 'Fix the draft translation: same meaning, natural French, always "tu" (never "vous"), idioms by meaning.'
+    : 'Fix the draft translation: same meaning, natural English, idioms by meaning.';
+  return `${rule} Do not answer the text, only translate it.${extra ? ' ' + extra : ''}\n${LANGN[from]}: ${text}\n${LANGN[to]} draft: ${draft}\n${LANGN[to]} fixed:`;
+}
+export function buildMessages({ text, draft, from, to, writer, reader }) {
+  const msgs = [];
+  for (const e of EXAMPLES[to]) { msgs.push({ role: 'user', content: turn(from, to, e.text, e.draft) }); msgs.push({ role: 'assistant', content: e.fixed }); }
+  const extra = to === 'fr' ? `The writer is a ${writer}, the reader is a ${reader}: use ${reader === 'woman' ? 'feminine' : 'masculine'} forms for the reader.` : '';
+  msgs.push({ role: 'user', content: turn(from, to, text, draft, extra) });
+  return msgs;
 }
 
+const words = (x) => String(x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]+/g) || [];
 // Cleans what the model wrote. Returns '' when it cannot be trusted (then the draft is kept).
 export function cleanOutput(raw, draft) {
   let s = String(raw || '').trim();
-  s = s.replace(/^(corrected translation|translation|traduction corrigée|traduction)\s*(\([^)]*\))?\s*:\s*/i, '').trim();
+  s = s.replace(/^(corrected translation|fixed translation|translation|traduction corrigée|traduction|(english|french) fixed)\s*(\([^)]*\))?\s*:\s*/i, '').trim();
   if (/^["«“].*["»”]$/s.test(s) && !/^["«“]/.test(draft.trim())) s = s.slice(1, -1).trim();
   if (!s) return '';
+  if (/^(okay|ok\b|sure|of course|certainly|i understand|i will|i'll|i can|here is|here's|voici|bien sûr|d'accord|je comprends|je vais)/i.test(s)) return '';   // it answered or talked about the task
+  if (/(corrected translation|translation editor|draft translation|do not answer|keep the meaning|i will (provide|not|keep)|je vais (fournir|corriger))/i.test(s)) return '';
   const a = s.length, b = Math.max(draft.length, 1);
-  if (a < b * 0.4 || a > b * 2.5 + 20) return '';          // far too short or too long: the model went off the task
-  if (/^(sure|here is|here's|of course|voici|bien sûr)\b/i.test(s)) return '';
+  if (a < b * 0.5 || a > b * 1.8 + 15) return '';                          // far too short or too long: it went off the task
+  const dw = words(draft), sw = words(s);
+  if (dw.length > 3 && sw.length) {                                        // it must still be about the same text
+    const set = new Set(dw); const same = sw.filter((w) => set.has(w)).length;
+    if (same / sw.length < 0.3) return '';
+  }
   return s;
 }
 
 export function canImprove() { return !!state.w; }
-// Returns { text, ms, status } where status is 'improved' | 'unchanged' | 'failed' | 'skipped'. handle.cancel() stops it.
+// Returns { text, ms, status, stats } where status is 'improved' | 'unchanged' | 'failed' | 'skipped'. handle.cancel() stops it.
+// stats = { firstMs, tokens, perSec } when the engine reports them (to see where the time goes).
 export async function improve({ text, draft, from, to, writer, reader, onToken, handle }) {
   if (!state.w) throw new Error('The language model is not ready.');
   const t0 = performance.now(), ac = new AbortController();
   if (handle) handle.cancel = () => { handle.cancelled = true; ac.abort(); };
-  const prompt = buildPrompt({ text, draft, from, to, writer, reader });
-  const maxNew = Math.min(400, Math.max(40, Math.round(draft.length * 0.9) + 40));
-  let raw = '';
+  const maxNew = Math.min(220, Math.ceil(draft.length / 2.8) + 20);       // about the length of the draft, so that it cannot ramble on
+  let raw = '', first = null, timings = null;
   try {
-    const it = await state.w.createChatCompletion({ messages: [{ role: 'user', content: prompt }], max_tokens: maxNew, temperature: 0, stream: true, abortSignal: ac.signal });
+    const it = await state.w.createChatCompletion({ messages: buildMessages({ text, draft, from, to, writer, reader }), max_tokens: maxNew, temperature: 0, stream: true, cache_prompt: true, timings_per_token: true, abortSignal: ac.signal });
     for await (const ch of it) {
       const c = ch && ch.choices && ch.choices[0];
       const d = (c && ((c.delta && c.delta.content) || c.text)) || '';
-      if (d) { raw += d; if (onToken) onToken(raw); }
+      if (ch && ch.timings) timings = ch.timings;
+      if (d) { if (first === null) first = Math.round(performance.now() - t0); raw += d; if (onToken) onToken(raw); }
     }
   } catch (e) { if (!(handle && handle.cancelled) && !(e && e.name === 'AbortError')) throw e; }
   const ms = Math.round(performance.now() - t0);
-  if (handle && handle.cancelled) return { text: draft, ms, status: 'skipped' };
+  const stats = { firstMs: first, tokens: timings ? timings.predicted_n : null, perSec: timings && timings.predicted_per_second ? Math.round(timings.predicted_per_second * 10) / 10 : null, promptMs: timings ? Math.round(timings.prompt_ms) : null };
+  if (handle && handle.cancelled) return { text: draft, ms, status: 'skipped', stats };
   const clean = cleanOutput(raw, draft);
-  if (!clean) return { text: draft, ms, status: 'failed' };
+  if (!clean) return { text: draft, ms, status: 'failed', stats, raw: raw.slice(0, 200) };
   const same = clean.replace(/\s+/g, ' ').trim() === draft.replace(/\s+/g, ' ').trim();
-  return { text: clean, ms, status: same ? 'unchanged' : 'improved' };
+  return { text: clean, ms, status: same ? 'unchanged' : 'improved', stats };
 }
 
 // ---------- 4. stored files ----------
@@ -343,4 +354,4 @@ export async function importFile(file) {
   return meta.files.length;
 }
 
-export const __test = { buildPrompt, cleanOutput, downloadFile, plan, dropOtherFiles, fileUrl };
+export const __test = { buildMessages, cleanOutput, downloadFile, plan, dropOtherFiles, fileUrl };

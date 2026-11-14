@@ -318,6 +318,9 @@ const EXTRA = {
     gateTitle: 'Before you start', gateLead: 'Test 1 has changed. Please read this guide. You cannot open the test until you have.',
     gateRead: 'I have read and understood', gateScroll: 'Scroll to the end to unlock this button.', gateSaving: 'Saving…', gateRetry: 'Try again',
     gatePurpose: 'What this test is', gateSteps: 'How to do it', gateYou: 'For you', gateTips: 'Good to know',
+    retestTitle: 'Test this sentence again?', retestText: 'This will erase the previous result of this test: the translation and the back-translation.',
+    retestTextReviewed: 'This will erase the previous result of this test: the translation, the back-translation and the reviews already given.', retestOk: 'Test again',
+    testBusy: 'A test is already running. Wait until it finishes.',
     confirmReplaceTitle: 'Replace this sentence?', confirmReplaceOk: 'Replace', delTitle: 'Delete this entry?', delOk: 'Delete',
     resetTitle: 'Reset this version?', resetOk: 'Delete everything', redoTitle: 'Download again?', redoOk: 'Download again',
     confirmReset: (v) => `Delete ALL entries of version ${v} from the sheet? They stay in the history table. The other version is not touched.`,
@@ -358,6 +361,9 @@ const EXTRA = {
     gateTitle: 'Avant de commencer', gateLead: 'Le Test 1 a changé. Lis ce guide : tu ne peux pas ouvrir le test avant de l\'avoir lu.',
     gateRead: 'J\'ai lu et compris', gateScroll: 'Fais défiler jusqu\'à la fin pour débloquer ce bouton.', gateSaving: 'Enregistrement…', gateRetry: 'Réessayer',
     gatePurpose: 'À quoi sert ce test', gateSteps: 'Comment faire', gateYou: 'Pour toi', gateTips: 'Bon à savoir',
+    retestTitle: 'Tester à nouveau cette phrase ?', retestText: 'Cela effacera le résultat précédent de ce test : la traduction et la traduction retour.',
+    retestTextReviewed: 'Cela effacera le résultat précédent de ce test : la traduction, la traduction retour et les évaluations déjà données.', retestOk: 'Tester à nouveau',
+    testBusy: 'Un test est déjà en cours. Attends qu\'il se termine.',
     confirmReplaceTitle: 'Remplacer cette phrase ?', confirmReplaceOk: 'Remplacer', delTitle: 'Supprimer cette entrée ?', delOk: 'Supprimer',
     resetTitle: 'Réinitialiser cette version ?', resetOk: 'Tout supprimer', redoTitle: 'Télécharger à nouveau ?', redoOk: 'Télécharger à nouveau',
     confirmReset: (v) => `Supprimer TOUTES les entrées de la version ${v} de la feuille ? Elles restent dans l\'historique. L\'autre version n\'est pas touchée.`,
@@ -410,6 +416,8 @@ const GUIDE_KEY = '2.2.0';
 let VER = (() => { try { return localStorage.getItem(VER_KEY) === '1' ? '1' : '2'; } catch { return '2'; } })();
 const FN = (n) => (VER === '2' ? 't1v2_' : 't1_') + n;
 const lm = { ready: false, failed: false, stored: false, loading: false, dtype: '' };
+let testingNow = false;                                  // one test at a time: the language model and the translator do one job at once
+const setTestButtons = (off) => document.querySelectorAll('button[data-testbtn]').forEach((x) => { x.disabled = off; });
 
 // ---------- database calls ----------
 async function rpc(fn, args) {
@@ -1061,6 +1069,13 @@ function liveBox(root) {
   };
 }
 
+// where the time went in the language model step: first word after N s, tokens, tokens per second (kept in the result's engine text)
+function statsText(a, b) {
+  const f = (x) => (x && x.stats && x.stats.firstMs != null ? `first word ${(x.stats.firstMs / 1000).toFixed(1)} s${x.stats.tokens ? `, ${x.stats.tokens} tokens` : ''}${x.stats.perSec ? `, ${x.stats.perSec}/s` : ''}` : '');
+  const fa = f(a), fb = f(b);
+  return VER === '2' && (fa || fb) ? `; model forward (${fa || 'n/a'}), back (${fb || 'n/a'})` : '';
+}
+
 // Bergamot translates first; in version 2 the language model then fixes the draft.
 async function pipeline(text, from, to, live) {
   const d = await runTranslate(text, from, to);
@@ -1073,7 +1088,7 @@ async function pipeline(text, from, to, live) {
   try {
     o = await llm.improve({ text, draft: d.text, from, to, writer: man ? 'man' : 'woman', reader: man ? 'woman' : 'man', handle, onToken: live ? (s) => live.token(s) : undefined });
   } catch (e) { console.error(e); o = { text: d.text, ms: 0, status: 'failed' }; }
-  return { draft: d.text, text: o.text, msDraft: d.ms, msPolish: o.ms, polish: o.status };
+  return { draft: d.text, text: o.text, msDraft: d.ms, msPolish: o.ms, polish: o.status, stats: o.stats };
 }
 
 // ---- one of my own sentences ----
@@ -1089,7 +1104,7 @@ function mineSlot(cat, n, item) {
   root.append(ta);
 
   const saveBtn = el('button', { type: 'button', text: t('save') });
-  const testBtn = el('button', { type: 'button', text: t('test') });
+  const testBtn = el('button', { type: 'button', text: t('test'), 'data-testbtn': '1' });
   const sv = SUI.save(saveBtn);
   const upd = () => sv.set(ta.value.trim() !== (item ? item.source_text : ''));
   ta.addEventListener('input', upd); upd();
@@ -1097,6 +1112,12 @@ function mineSlot(cat, n, item) {
   const live = liveBox(root);
 
   const confirmIfReviewed = async () => !(item && (item.translation_rating || item.back_rating)) || await askReplace();
+  // a finished test can be run again, but only after the person confirms that the previous result is erased
+  const confirmRetest = async () => {
+    if (!(item && item.translation)) return true;
+    const reviewed = !!(item.translation_rating || item.back_rating);
+    return SUI.confirm({ title: t('retestTitle'), text: t(reviewed ? 'retestTextReviewed' : 'retestText'), ok: t('retestOk'), cancel: t('cancel'), danger: true });
+  };
 
   saveBtn.addEventListener('click', async () => {
     const text = ta.value.trim();
@@ -1111,12 +1132,15 @@ function mineSlot(cat, n, item) {
   });
 
   testBtn.addEventListener('click', async () => {
+    if (testingNow) { setMsg(box, t('testBusy'), 'err'); return; }
     const text = ta.value.trim();
     if (!text) { setMsg(box, t('error', 'bad_text'), 'err'); return; }
     if (!tr.ready) { $('tdetails').open = true; setMsg(box, t('needTranslator'), 'err'); $('tpanel').scrollIntoView({ block: 'center' }); return; }
     if (VER === '2' && !lm.ready && !lm.failed) { const d = $('ldetails'); if (d) d.open = true; setMsg(box, t('needLlm'), 'err'); const p = $('lpanel'); if (p) p.scrollIntoView({ block: 'center' }); return; }
-    if (!(await confirmIfReviewed())) return;
-    busy++; saveBtn.disabled = testBtn.disabled = true;
+    if (!(await confirmRetest())) return;
+    if (testingNow) return;
+    testingNow = true; setTestButtons(true);
+    busy++; saveBtn.disabled = true;
     setMsg(box, t('translating'));
     try {
       const [from, to] = session.role === 'admin' ? ['en', 'fr'] : ['fr', 'en'];
@@ -1126,14 +1150,14 @@ function mineSlot(cat, n, item) {
       live.hide();
       const args = VER === '2'
         ? { p_category: cat.id, p_slot: n, p_source: text, p_draft: a.draft, p_translation: a.text, p_polish_out: a.polish, p_back_draft: b.draft, p_back: b.text, p_polish_back: b.polish,
-            p_ms_out: a.msDraft, p_ms_polish: a.msPolish, p_ms_back: b.msDraft, p_ms_back_polish: b.msPolish, p_engine: engineLabel(), p_device: deviceLabel() }
+            p_ms_out: a.msDraft, p_ms_polish: a.msPolish, p_ms_back: b.msDraft, p_ms_back_polish: b.msPolish, p_engine: `${engineLabel()}${statsText(a, b)}`, p_device: deviceLabel() }
         : { p_category: cat.id, p_slot: n, p_source: text, p_translation: a.text, p_back: b.text, p_ms_out: a.msDraft, p_ms_back: b.msDraft, p_engine: engineLabel(), p_device: deviceLabel() };
       const r = await call(FN('save_item'), args);
-      if (handleResult(r, box)) { drafts.delete(key); await refresh(true); }
+      if (handleResult(r, box)) { drafts.delete(key); testingNow = false; await refresh(true); }
     } catch (e) {
       console.error(e); live.hide();
       setMsg(box, `${e.message || t('netError')}`, 'err');
-    } finally { busy--; saveBtn.disabled = testBtn.disabled = false; }
+    } finally { testingNow = false; setTestButtons(false); busy--; saveBtn.disabled = false; }
   });
 
   if (item && item.translation) {
