@@ -123,7 +123,6 @@
 
     <section class="card" id="vpanel"></section>
     <section class="card" id="tpanel"></section>
-    <section class="card" id="lpanel"></section>
     <section class="card" id="mpanel"></section>
 
     <section class="card">
@@ -141,7 +140,7 @@
 <script type="module">
 import { decompress as zstdDecompress } from './vendor/fzstd.mjs';
 import * as store from './modelstore.js';
-import * as llm from './llm.js';
+import * as rules from './rules.js';
 
 // ---- connection to the shared database (public values; safe to be in this file) ----
 const SUPABASE_URL = SENV.sb;                 // from config.js
@@ -285,8 +284,8 @@ const I18N = {
 // ---------- texts added in v2.2.0 ----------
 const EXTRA = {
   en: {
-    verTitle: 'Test version', ver2: 'Version 2 · Bergamot + language model', ver1: 'Version 1 · Bergamot only',
-    ver2help: 'The new approach: Bergamot translates, then a small language model on your phone fixes the draft (always "tu", idioms by meaning). Use this version now.',
+    verTitle: 'Test version', ver2: 'Version 2 · Bergamot + tu rules', ver1: 'Version 1 · Bergamot only',
+    ver2help: 'Bergamot translates, then a rules step repairs what the engine often gets wrong: "vous" becomes "tu" (with its verbs and possessives), idioms and slang are replaced by plain wording before translating, and adjectives follow the gender of the people. Instant and private. Use this version now.',
     ver1help: 'The first approach, kept as it was. Its sentences, results and progress are separate from version 2.',
     switchTitle: 'Switch version?', switchText: 'You have changes that are not saved in this version.',
     switchSave: 'Save and switch', switchStay: 'Stay here', switchDrop: 'Switch without saving',
@@ -306,8 +305,8 @@ const EXTRA = {
     llmReady: (s, d) => `Ready (${d}). Took ${s} s.`, llmFail: (m) => `The language model could not start: ${m}`, llmNotReady: 'Not prepared yet.',
     needLlm: 'Prepare the language model first (section above). If it cannot start on your phone, you can still test with Bergamot only.',
     llmOnlyBergamot: 'The language model could not start, so this test uses Bergamot only (it is marked in the report).',
-    improving: 'Improving the draft…', cancelImprove: 'Skip this step', draftLabel: 'Draft (Bergamot)', improvedLabel: 'Improved text',
-    polish_improved: 'Fixed by the language model', polish_unchanged: 'Language model: no change needed', polish_failed: 'Language model: its answer could not be used, the draft was kept', polish_skipped: 'Language model: skipped, the draft was kept',
+    improving: 'Improving the draft…', cancelImprove: 'Skip this step', draftLabel: 'Draft (Bergamot)', improvedLabel: 'Final text (after the rules step)',
+    polish_improved: 'Rules step: changed the draft', polish_unchanged: 'Rules step: nothing to change', polish_failed: 'Rules step: not used', polish_skipped: 'Rules step: not used', rulesLabel: 'Rules applied',
     showDraft: 'Bergamot\'s draft and the language model step',
     mmTitle: 'Manage stored models', mmEmpty: 'Nothing is stored on this phone yet.', mmBerg: 'Bergamot translation models', mmLlm: 'Language model (Gemma 3 270M)',
     mmDelete: 'Delete', mmSave: 'Save to a file', mmLoad: 'Load from a file', mmDeleted: 'Deleted.', mmSaved: (n) => `Saved as ${n}.`, mmLoaded: (n) => `Loaded ${n} file(s). Start the model to use it.`,
@@ -331,8 +330,8 @@ const EXTRA = {
     error: (c) => ({ auth: 'Your session ended. Please enter your PIN again.', not_allowed: 'This is not allowed for your role.', not_tested: 'This sentence has not been tested yet.', bad_text: 'The sentence is empty or too long (maximum 1000 characters).', bad_rating: 'Choose a rating first.', not_found: 'This entry no longer exists.', bad_value: 'A value was not accepted.' }[c] || `Error: ${c}`),
   },
   fr: {
-    verTitle: 'Version du test', ver2: 'Version 2 · Bergamot + modèle de langage', ver1: 'Version 1 · Bergamot seul',
-    ver2help: 'La nouvelle approche : Bergamot traduit, puis un petit modèle de langage sur ton téléphone corrige le brouillon (toujours « tu », expressions traduites par leur sens). Utilise cette version maintenant.',
+    verTitle: 'Version du test', ver2: 'Version 2 · Bergamot + règles du tu', ver1: 'Version 1 · Bergamot seul',
+    ver2help: 'Bergamot traduit, puis une étape de règles corrige ce que le moteur rate souvent : « vous » devient « tu » (avec ses verbes et ses possessifs), les expressions et l\'argot sont remplacés par des mots simples avant la traduction, et les adjectifs suivent le genre des personnes. Instantané et privé. Utilise cette version maintenant.',
     ver1help: 'La première approche, gardée telle quelle. Ses phrases, ses résultats et son avancement sont séparés de la version 2.',
     switchTitle: 'Changer de version ?', switchText: 'Tu as des modifications non enregistrées dans cette version.',
     switchSave: 'Enregistrer et changer', switchStay: 'Rester ici', switchDrop: 'Changer sans enregistrer',
@@ -352,8 +351,8 @@ const EXTRA = {
     llmReady: (s, d) => `Prêt (${d}). Durée : ${s} s.`, llmFail: (m) => `Le modèle de langage n\'a pas pu démarrer : ${m}`, llmNotReady: 'Pas encore préparé.',
     needLlm: 'Prépare d\'abord le modèle de langage (section ci-dessus). S\'il ne démarre pas sur ton téléphone, tu peux quand même tester avec Bergamot seul.',
     llmOnlyBergamot: 'Le modèle de langage n\'a pas pu démarrer : ce test utilise Bergamot seul (c\'est indiqué dans le rapport).',
-    improving: 'Amélioration du brouillon…', cancelImprove: 'Passer cette étape', draftLabel: 'Brouillon (Bergamot)', improvedLabel: 'Texte amélioré',
-    polish_improved: 'Corrigé par le modèle de langage', polish_unchanged: 'Modèle de langage : rien à changer', polish_failed: 'Modèle de langage : sa réponse n\'a pas pu être utilisée, le brouillon est gardé', polish_skipped: 'Modèle de langage : étape passée, le brouillon est gardé',
+    improving: 'Amélioration du brouillon…', cancelImprove: 'Passer cette étape', draftLabel: 'Brouillon (Bergamot)', improvedLabel: 'Texte final (après l\'étape de règles)',
+    polish_improved: 'Étape de règles : brouillon modifié', polish_unchanged: 'Étape de règles : rien à changer', polish_failed: 'Étape de règles : non utilisée', polish_skipped: 'Étape de règles : non utilisée', rulesLabel: 'Règles appliquées',
     showDraft: 'Brouillon de Bergamot et étape du modèle de langage',
     mmTitle: 'Gérer les modèles enregistrés', mmEmpty: 'Rien n\'est encore enregistré sur ce téléphone.', mmBerg: 'Modèles de traduction Bergamot', mmLlm: 'Modèle de langage (Gemma 3 270M)',
     mmDelete: 'Supprimer', mmSave: 'Enregistrer dans un fichier', mmLoad: 'Charger depuis un fichier', mmDeleted: 'Supprimé.', mmSaved: (n) => `Enregistré sous ${n}.`, mmLoaded: (n) => `${n} fichier(s) chargé(s). Démarre le modèle pour l\'utiliser.`,
@@ -416,18 +415,15 @@ let filterMode = 'all';
 
 const other = () => (session.role === 'admin' ? 'partner' : 'admin');
 
-// ---------- test version (v2.2.0): version 2 = Bergamot + language model, version 1 = Bergamot only ----------
+// ---------- test version (v2.2.0): version 2 = Bergamot + rules step (tu, idioms, slang), version 1 = Bergamot only ----------
 const VER_KEY = 'sanctuaire-t1-version-v1';
-const GUIDE_KEY = '2.2.0';
+const GUIDE_KEY = '2.2.1';
 let VER = (() => { try { return localStorage.getItem(VER_KEY) === '1' ? '1' : '2'; } catch { return '2'; } })();
 const FN = (n) => (VER === '2' ? 't1v2_' : 't1_') + n;
-const lm = { ready: false, failed: false, stored: false, loading: false, dtype: '' };
-let testingNow = false;                                  // one test at a time: the language model and the translator do one job at once
-// The Test button is locked until everything it needs is ready (translator and, in version 2, the language model), and while a test runs.
+let testingNow = false;                                  // one test at a time
+// The Test button is locked until the translator is ready, and while a test runs.
 function testReadiness() {
-  if (!tr.ready) return t('testWaitTranslator');
-  if (VER === '2' && !lm.ready) return t(lm.loading || llm.downloading() ? 'testWaitModelBusy' : 'testWaitModel');
-  return '';
+  return tr.ready ? '' : t('testWaitTranslator');
 }
 function updateTestLock() {
   const why = testReadiness();
@@ -573,13 +569,11 @@ async function start() {
   buildChrome();
   buildVersionPanel();
   buildTranslatorPanel();
-  buildLlmPanel();
   buildModelManager();
   autoStartTranslator();   // not awaited: the sheet opens while the translators start
-  autoStartLlm();
+  cleanupOldModels();      // the earlier language-model tries are deleted from this phone
   await refresh(true);
   startPolling();
-  registerDownloadBlock();                         // leaving while the model downloads asks first
   SUI.guard({ isDirty: hasUnsaved, saveAll, discard: discardUnsaved });
   if (window.SNotice) SNotice.pageReady('test1');   // the engine may be missing while an update is being uploaded
   SUI.autosave('test1');                            // "Save the changes" was chosen after the app had been closed
@@ -590,8 +584,14 @@ function rebuildAll() {
   if (!session) return;
   LANG = SBar.lang(); document.documentElement.lang = LANG;
   if (gateShown) { renderGate(); return; }
-  buildChrome(); buildVersionPanel(); buildTranslatorPanel(); buildLlmPanel(); buildModelManager();
+  buildChrome(); buildVersionPanel(); buildTranslatorPanel(); buildModelManager();
   if (sheet) renderSheet();
+}
+
+// The language-model tries of the first versions left files on the phone (several hundred MB): remove them once, silently.
+async function cleanupOldModels() {
+  try { for (const n of ['sanctuaire-llm-v1', 'transformers-cache']) await caches.delete(n); } catch { /* ignore */ }
+  try { indexedDB.deleteDatabase('sanctuaire-llm-chunks'); } catch { /* ignore */ }
 }
 
 function buildChrome() {
@@ -856,7 +856,7 @@ function buildTranslatorPanel() {
 
 function engineLabel() {
   const base = `${tr.engineKind === 'engine2' ? 'newer 0.4.16' : 'official 0.4.9'}; beam ${tr.beam}; models v3.0${tr.lex ? ' with word lists' : ' without word lists'}`;
-  return VER === '2' ? `${base}; language model ${lm.ready ? 'Gemma 3 270M ' + lm.dtype + ' (processor)' : 'not used'}` : base;
+  return VER === '2' ? `${base}; rules step 1` : base;
 }
 function deviceLabel() {
   return `${navigator.userAgent.slice(0, 150)}; mem ${navigator.deviceMemory ?? '?'} GB; ${navigator.hardwareConcurrency ?? '?'} threads`;
@@ -1063,49 +1063,31 @@ function timeLabel(item, which) {
 }
 function resultBoxes(item, label, which) {
   const text = which === 'out' ? item.translation : item.back_translation, draft = which === 'out' ? item.draft_translation : item.back_draft;
-  const pol = which === 'out' ? item.polish_out : item.polish_back;
+  const pol = which === 'out' ? item.polish_out : item.polish_back, rules = which === 'out' ? item.rules_out : item.rules_back;
   const out = [el('div', { class: 'box' }, el('small', { text: `${label} · ${timeLabel(item, which)}` }), text || '')];
   if (VER === '2' && pol) {
-    out.push(el('details', { class: 'plain' }, el('summary', { text: `${t('polish_' + pol)}` }),
+    out.push(el('details', { class: 'plain' }, el('summary', { text: `${t('polish_' + pol)}${rules ? ' · ' + rules : ''}` }),
       el('div', { class: 'box' }, el('small', { text: t('draftLabel') }), draft || ''),
-      el('div', { class: 'box' }, el('small', { text: t('improvedLabel') }), text || '')));
+      el('div', { class: 'box' }, el('small', { text: t('improvedLabel') }), text || ''),
+      rules ? el('div', { class: 'muted', text: `${t('rulesLabel')}: ${rules}` }) : null));
   }
   return out;
 }
-// Shows Bergamot's draft at once and the language model's text as it is written. Returns small controls.
-function liveBox(root) {
-  const wrap = el('div', { class: 'box hidden' }), head = el('small'), body = el('div'), stat = el('div', { class: 'msg' });
-  const skip = el('button', { type: 'button', class: 'secondary', text: t('cancelImprove') });
-  wrap.append(head, body, stat, skip);
-  root.append(wrap);
-  return {
-    draft(txt) { wrap.classList.remove('hidden'); head.textContent = t('draftLabel'); body.textContent = txt; stat.textContent = ''; skip.style.display = 'none'; },
-    improving(handle) { stat.textContent = t('improving'); skip.style.display = ''; skip.onclick = () => { if (handle.cancel) handle.cancel(); }; },
-    token(txt) { stat.textContent = `${t('improving')} ${txt}`; },
-    hide() { wrap.classList.add('hidden'); },
-  };
-}
 
-// where the time went in the language model step: first word after N s, tokens, tokens per second (kept in the result's engine text)
-function statsText(a, b) {
-  const f = (x) => (x && x.stats && x.stats.firstMs != null ? `first word ${(x.stats.firstMs / 1000).toFixed(1)} s${x.stats.tokens ? `, ${x.stats.tokens} tokens` : ''}${x.stats.perSec ? `, ${x.stats.perSec}/s` : ''}` : '');
-  const fa = f(a), fb = f(b);
-  return VER === '2' && (fa || fb) ? `; model forward (${fa || 'n/a'}), back (${fb || 'n/a'})` : '';
-}
-
-// Bergamot translates first; in version 2 the language model then fixes the draft.
-async function pipeline(text, from, to, live) {
-  const d = await runTranslate(text, from, to);
-  if (VER !== '2') return { draft: d.text, text: d.text, msDraft: d.ms, msPolish: null, polish: null };
-  if (!lm.ready) return { draft: d.text, text: d.text, msDraft: d.ms, msPolish: null, polish: 'skipped' };
-  const handle = { cancelled: false };
-  if (live) { live.draft(d.text); live.improving(handle); }
+// Bergamot translates; in version 2 the rules step then repairs idioms, slang and the "vous" that should be "tu" (rules.js).
+// The draft kept for comparison is what Bergamot gives for the sender's own text (what version 1 gives).
+async function pipeline(text, from, to) {
+  if (VER !== '2') { const d = await runTranslate(text, from, to); return { draft: d.text, text: d.text, msDraft: d.ms, msPolish: null, polish: null, rules: null }; }
   const man = session.role === 'admin';                     // the English speaker is the man, the French speaker the woman
-  let o;
-  try {
-    o = await llm.improve({ text, draft: d.text, from, to, writer: man ? 'man' : 'woman', reader: man ? 'woman' : 'man', handle, onToken: live ? (s) => live.token(s) : undefined });
-  } catch (e) { console.error(e); o = { text: d.text, ms: 0, status: 'failed' }; }
-  return { draft: d.text, text: o.text, msDraft: d.ms, msPolish: o.ms, polish: o.status, stats: o.stats };
+  const ctx = { reader: man ? 'woman' : 'man', writer: man ? 'man' : 'woman' };
+  const pre = rules.preEdit(text, from);
+  const d0 = await runTranslate(text, from, to);
+  let d = d0, extra = 0;
+  if (pre.changed) { d = await runTranslate(pre.text, from, to); extra = d.ms; }
+  const r0 = performance.now();
+  const post = rules.postEdit(d.text, to, ctx);
+  const msRules = Math.max(1, Math.round(performance.now() - r0));
+  return { draft: d0.text, text: post.text, msDraft: d0.ms + extra, msPolish: msRules, polish: post.text !== d0.text ? 'improved' : 'unchanged', rules: rules.summarize([...pre.hits, ...post.hits]) || null };
 }
 
 // ---- one of my own sentences ----
@@ -1126,7 +1108,6 @@ function mineSlot(cat, n, item) {
   const upd = () => sv.set(ta.value.trim() !== (item ? item.source_text : ''));
   ta.addEventListener('input', upd); upd();
   root.append(el('div', { class: 'row' }, saveBtn, testBtn), el('div', { class: 'muted hidden', 'data-testhint': '1', role: 'status' }), box);
-  const live = liveBox(root);
 
   const confirmIfReviewed = async () => !(item && (item.translation_rating || item.back_rating)) || await askReplace();
   // a finished test can be run again, but only after the person confirms that the previous result is erased
@@ -1160,18 +1141,16 @@ function mineSlot(cat, n, item) {
     setMsg(box, t('translating'));
     try {
       const [from, to] = session.role === 'admin' ? ['en', 'fr'] : ['fr', 'en'];
-      const a = await pipeline(text, from, to, live);
-      live.hide();
-      const b = await pipeline(a.text, to, from, live);
-      live.hide();
+      const a = await pipeline(text, from, to);
+      const b = await pipeline(a.text, to, from);
       const args = VER === '2'
         ? { p_category: cat.id, p_slot: n, p_source: text, p_draft: a.draft, p_translation: a.text, p_polish_out: a.polish, p_back_draft: b.draft, p_back: b.text, p_polish_back: b.polish,
-            p_ms_out: a.msDraft, p_ms_polish: a.msPolish, p_ms_back: b.msDraft, p_ms_back_polish: b.msPolish, p_engine: `${engineLabel()}${statsText(a, b)}`, p_device: deviceLabel() }
+            p_ms_out: a.msDraft, p_ms_polish: a.msPolish, p_ms_back: b.msDraft, p_ms_back_polish: b.msPolish, p_engine: engineLabel(), p_device: deviceLabel(), p_rules_out: a.rules, p_rules_back: b.rules }
         : { p_category: cat.id, p_slot: n, p_source: text, p_translation: a.text, p_back: b.text, p_ms_out: a.msDraft, p_ms_back: b.msDraft, p_engine: engineLabel(), p_device: deviceLabel() };
       const r = await call(FN('save_item'), args);
       if (handleResult(r, box)) { drafts.delete(key); testingNow = false; await refresh(true); }
     } catch (e) {
-      console.error(e); live.hide();
+      console.error(e);
       setMsg(box, `${e.message || t('netError')}`, 'err');
     } finally { testingNow = false; updateTestLock(); busy--; saveBtn.disabled = false; }
   });
@@ -1307,7 +1286,6 @@ function buildVersionPanel() {
   p.append(el('h2', { text: t('verTitle') }),
     el('div', { class: 'rate two vsel' }, mk('2', t('ver2')), mk('1', t('ver1'))),
     el('p', { class: 'muted', text: VER === '2' ? t('ver2help') : t('ver1help') }));
-  $('lpanel').classList.toggle('hidden', VER !== '2');
 }
 async function switchVersion(v) {
   if (v === VER) return;
@@ -1323,109 +1301,6 @@ async function switchVersion(v) {
   sheet = null;
   buildVersionPanel(); buildChrome();
   await refresh(true);
-}
-
-// ---------- language model panel (version 2) ----------
-const MB = (n) => Math.round(n / 1048576);
-function llmStatus(text, kind) { const s = $('lstatus'); if (s) { s.textContent = text; s.className = 'msg' + (kind ? ' ' + kind : ''); } }
-function buildLlmPanel() {
-  const p = $('lpanel');
-  p.textContent = '';
-  p.append(el('details', { class: 'plain', id: 'ldetails', open: !lm.ready },
-    el('summary', { text: t('llmTitle') }),
-    el('p', { class: 'muted', text: t('llmHelp') }),
-    el('p', { class: 'muted', id: 'lsize', text: lm.stored || lm.ready ? '' : t('llmSizeUnknown') }),
-    el('div', { class: 'row', id: 'lbtns' }),
-    el('progress', { id: 'lbar', max: '100', value: '0', class: 'hidden', style: 'width:100%' }),
-    el('div', { id: 'lstatus', class: 'msg', role: 'status', 'aria-live': 'polite' })));
-  renderLlm();
-}
-// Shows the state of the download or the model: the right buttons and the progress.
-function renderLlm() {
-  updateTestLock();
-  const row = $('lbtns'); if (!row) return;
-  const d = llm.DL, bar = $('lbar');
-  row.textContent = '';
-  const btn = (text, onclick, cls) => el('button', { type: 'button', class: cls || '', text, onclick });
-  bar.classList.toggle('hidden', !(d.state === 'running' || d.state === 'paused'));
-  if (d.total) bar.value = Math.min(100, Math.round((d.loaded / d.total) * 100));
-  if (lm.ready) { llmStatus(t('llmReady', lm.secs || 0, lm.dtype), 'ok'); return; }
-  if (lm.loading) { llmStatus(t('llmPreparing')); return; }
-  if (d.state === 'running') {
-    llmStatus(t('llmDownloading', MB(d.loaded), MB(d.total)));
-    row.append(btn(t('dlPause'), () => llm.pause(), 'secondary'), btn(t('dlCancel'), cancelDownload, 'danger'));
-  } else if (d.state === 'paused') {
-    llmStatus(d.error || t('dlPaused', MB(d.loaded), MB(d.total)), d.error ? 'err' : '');
-    row.append(btn(t('dlContinue'), runDownload), btn(t('dlCancel'), cancelDownload, 'danger'));
-  } else if (lm.stored) {
-    if (!lm.failed) llmStatus(t('llmNotReady'));
-    row.append(btn(t('llmStart'), startModel));
-  } else if (lm.partial) {
-    llmStatus(t('dlEarlier'));
-    row.append(btn(t('dlContinue'), startDownload), btn(t('dlCancel'), cancelDownload, 'danger'));
-  } else {
-    if (!lm.failed) llmStatus(t('llmNotReady'));
-    row.append(btn(t('llmPrepare'), startDownload));
-  }
-}
-llm.onDownload(() => renderLlm());
-// the download is checked and confirmed first (exact size), then it runs by itself and the model starts when it is done
-async function startDownload() {
-  lm.failed = false;
-  llmStatus(t('llmChecking'));
-  try {
-    const p = llm.DL.plan || (llm.DL.plan = await llm.plan());
-    if (!lm.partial) {
-      const ok = await SUI.confirm({ title: t('llmConfirmTitle'), text: t('llmConfirmText', MB(p.total)), ok: t('llmConfirmOk'), cancel: t('cancel') });
-      if (!ok) { llm.DL.plan = null; renderLlm(); return; }
-    }
-  } catch (e) { llm.DL.plan = null; lm.failed = true; llmStatus(t('llmFail', (e && e.message) || String(e)), 'err'); renderLlm(); return; }
-  await runDownload();
-}
-async function runDownload() {
-  lm.failed = false;
-  await llm.download();
-  if (llm.DL.state === 'done') { lm.stored = true; lm.partial = false; await startModel(); }
-  refreshModelManager();
-}
-async function cancelDownload() {
-  if (!(await SUI.confirm({ title: t('dlCancelTitle'), text: t('dlCancelText'), ok: t('dlCancelOk'), cancel: t('dlKeep'), danger: true }))) return;
-  await llm.cancel(); lm.stored = false; lm.partial = false; lm.ready = false; lm.failed = false;
-  llmStatus(t('llmNotReady')); renderLlm(); refreshModelManager();
-}
-// load the stored model into memory and run one tiny sentence: proves it works on this phone and warms it up
-async function startModel() {
-  if (lm.loading || lm.ready) return;
-  lm.loading = true; lm.failed = false; renderLlm();
-  const t0 = performance.now();
-  try {
-    await llm.load();
-    await llm.improve({ text: 'Hello, my friend.', draft: 'Bonjour, mon ami.', from: 'en', to: 'fr', writer: 'man', reader: 'woman', handle: {} });
-    lm.ready = true; lm.stored = true; lm.dtype = llm.status().dtype || ''; lm.secs = Math.round((performance.now() - t0) / 1000);
-    const d = $('ldetails'); if (d) d.open = false;
-  } catch (e) {
-    console.error(e);
-    lm.failed = true; lm.ready = false;
-    lm.loading = false; renderLlm();
-    llmStatus(t('llmFail', (e && e.message) || String(e)), 'err');
-    refreshModelManager();
-    return;
-  }
-  lm.loading = false; renderLlm(); refreshModelManager();
-}
-async function autoStartLlm() {
-  try { lm.stored = await llm.isStored(); lm.partial = !lm.stored && (await llm.hasPartial()); } catch { lm.stored = false; }
-  renderLlm();
-  if (lm.stored && !lm.ready && !lm.loading && VER === '2' && llm.DL.state !== 'running') startModel();
-}
-let blockRegistered = false;
-function registerDownloadBlock() {
-  if (blockRegistered) return; blockRegistered = true;
-  SUI.block(() => (llm.downloading() ? {
-    title: t('dlLeaveTitle'), text: t('dlLeaveText'), stayId: 'stay',
-    buttons: [{ id: 'pause', label: t('dlPauseLeave'), kind: 'quiet' }, { id: 'stay', label: t('dlStay'), kind: 'primary' }],
-    onChoose: (id) => { if (id === 'pause') { llm.pause(); return true; } return false; }
-  } : null));
 }
 
 // ---------- manage stored models ----------
@@ -1448,9 +1323,8 @@ function buildModelManager() {
 async function refreshModelManager() {
   const list = $('mlist'); if (!list) return;
   const rows = [];
-  let berg = [], files = [];
+  let berg = [];
   try { berg = (await store.all()) || []; } catch { berg = []; }
-  try { files = await llm.storedFiles(); } catch { files = []; }
   const msg = (text, kind) => { const m = $('mmsg'); m.textContent = text; m.className = 'msg' + (kind ? ' ' + kind : ''); };
   const row = (title, bytes, onDelete, onSave, onLoad) => {
     const file = el('input', { type: 'file', class: 'hidden', accept: '.smdl,application/octet-stream' });
@@ -1477,11 +1351,6 @@ async function refreshModelManager() {
     async () => { await store.clear(); tr.cached = false; tr.ready = false; if (tr.translator) { try { await tr.translator.delete(); } catch { /* ignore */ } tr.translator = null; } updatePrepLabels(); },
     async () => { const b = await store.exportBlob(); saveBlobAs(b, 'sanctuaire-bergamot-models.smdl'); msg(t('mmSaved', 'sanctuaire-bergamot-models.smdl'), 'ok'); },
     async (f) => { const n = await store.importFile(f); tr.cached = await store.isComplete(); updatePrepLabels(); return n; }));
-  const llmBytes = files.reduce((s, f) => s + f.size, 0);
-  rows.push(row(t('mmLlm'), llmBytes,
-    async () => { await llm.deleteStored(); lm.ready = false; lm.stored = false; buildLlmPanel(); },
-    async () => { const b = await llm.exportBlob(); saveBlobAs(b, 'sanctuaire-gemma-270m.smdl'); msg(t('mmSaved', 'sanctuaire-gemma-270m.smdl'), 'ok'); },
-    async (f) => { const n = await llm.importFile(f); lm.stored = true; buildLlmPanel(); return n; }));
   list.textContent = ''; list.append(...rows);
   let persisted = false; try { persisted = !!(navigator.storage && navigator.storage.persisted && await navigator.storage.persisted()); } catch { /* ignore */ }
   $('mpersist').textContent = persisted ? t('mmPersistYes') : t('mmPersistNo');

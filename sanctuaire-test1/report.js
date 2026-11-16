@@ -15,9 +15,9 @@ const TEXT = {
     title: 'Sanctuaire Test 1',
     subtitle: 'On-device translation: results report',
     exported: (d) => `Exported ${d}`,
-    ver2: 'Version 2 · Bergamot + language model', ver1: 'Version 1 · Bergamot only',
-    draft: 'Bergamot draft', polish: { improved: 'Language model: fixed the draft', unchanged: 'Language model: no change needed', failed: 'Language model: answer not usable, draft kept', skipped: 'Language model: skipped, draft kept' },
-    polishSummary: (c, ms) => `Language model step (translation direction only): fixed ${c.improved}, no change ${c.unchanged}, not usable ${c.failed}, skipped ${c.skipped}.${ms ? ` Median model time ${ms}.` : ''} Times in the table are Bergamot's only.`,
+    ver2: 'Version 2 · Bergamot + tu rules', ver1: 'Version 1 · Bergamot only',
+    draft: 'Bergamot draft', rules: 'Rules applied', polish: { improved: 'Rules step: changed the draft', unchanged: 'Rules step: nothing to change', failed: 'Rules step: not used', skipped: 'Rules step: not used' },
+    polishSummary: (c, ms) => `Rules step (translation direction only): changed ${c.improved}, nothing to change ${c.unchanged}.${ms ? ` Median rules time ${ms}.` : ''} Times in the table are Bergamot's only.`,
     by: (r) => `by ${r}`,
     whoBy: { admin: 'the English speaker', partner: 'the French speaker' },
     sectionSummary: 'Summary',
@@ -54,9 +54,9 @@ const TEXT = {
     title: 'Sanctuaire Test 1',
     subtitle: 'Traduction sur le téléphone : rapport des résultats',
     exported: (d) => `Exporté le ${d}`,
-    ver2: 'Version 2 · Bergamot + modèle de langage', ver1: 'Version 1 · Bergamot seul',
-    draft: 'Brouillon Bergamot', polish: { improved: 'Modèle de langage : brouillon corrigé', unchanged: 'Modèle de langage : rien à changer', failed: 'Modèle de langage : réponse inutilisable, brouillon gardé', skipped: 'Modèle de langage : étape passée, brouillon gardé' },
-    polishSummary: (c, ms) => `Étape du modèle de langage (sens de la traduction seulement) : corrigé ${c.improved}, rien à changer ${c.unchanged}, inutilisable ${c.failed}, passé ${c.skipped}.${ms ? ` Temps médian du modèle ${ms}.` : ''} Les temps du tableau sont ceux de Bergamot seul.`,
+    ver2: 'Version 2 · Bergamot + règles du tu', ver1: 'Version 1 · Bergamot seul',
+    draft: 'Brouillon Bergamot', rules: 'Règles appliquées', polish: { improved: 'Étape de règles : brouillon modifié', unchanged: 'Étape de règles : rien à changer', failed: 'Étape de règles : non utilisée', skipped: 'Étape de règles : non utilisée' },
+    polishSummary: (c, ms) => `Étape de règles (sens de la traduction seulement) : modifié ${c.improved}, rien à changer ${c.unchanged}.${ms ? ` Temps médian des règles ${ms}.` : ''} Les temps du tableau sont ceux de Bergamot seul.`,
     by: (r) => `par ${r}`,
     whoBy: { admin: 'la personne anglophone', partner: 'la personne francophone' },
     sectionSummary: 'Résumé',
@@ -315,10 +315,10 @@ export function buildReport(JsPDF, fonts, data, opts = {}) {
       add(T.translation(T.langName[dstLang[a]]), i.translation);
       if (i.polish_out) {
         if (i.draft_translation && i.draft_translation !== i.translation) add(T.draft, i.draft_translation, { color: C.muted });
-        add(T.polish[i.polish_out] || '', ' ', { color: C.muted });
+        add(T.polish[i.polish_out] || '', i.rules_out || ' ', { color: C.muted });
       }
       add(T.back(T.langName[srcLang[a]]), i.back_translation || '');
-      if (i.polish_back) add(T.polish[i.polish_back] || '', ' ', { color: C.muted });
+      if (i.polish_back) add(T.polish[i.polish_back] || '', i.rules_back || ' ', { color: C.muted });
     } else {
       add(T.translation(T.langName[dstLang[a]]), T.notTested, { color: C.muted });
     }
