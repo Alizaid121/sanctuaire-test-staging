@@ -226,23 +226,59 @@ function genderFix(text, ctx, hits) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------
+// Words that must come through untouched (greetings and affectionate words from the two people's own languages and culture).
+// Bergamot does not know them and sometimes invents a word (it turned "Oklm" into "Royaume"). They are swapped for common first names,
+// which every translation engine copies, and swapped back afterwards. If a name does not come back, the translation is redone without it.
+// ---------------------------------------------------------------------------------------------------------------------------
+const PROTECT = mk(["assalam(?:u|o)?\\s*(?:o|u|w)?\\s*(?:alaikum|alaykum|aelaikum|alaikom)", "as-salamu alaykum", "wa\\s*(?:alaikum|alaykum)\\s*(?:us)?\\s*salam", "walaikum\\s*(?:us)?salam", "salam alaikum", "salam",
+  "in\\s*sha\\s*allah", "insha['’]?allah", "inshallah", "masha['’]?allah", "mashallah", "alhamdulillah", "subhanallah", "astaghfirullah", "jazak(?:a)?\\s*allah(?:\\s*khair)?", "barakallah(?:\\s*feek)?",
+  "bismillah", "wallahi", "ya allah", "ameen", "habibi", "habibti", "ya\\s*habib[it]+", "ya\\s*n[ou]+r\\s*[ae]yni", "ya\\s*r[ou]+hi", "ya\\s*albi", "ya\\s*qalbi", "sakina", "iftar", "suhoor", "eid mubarak", "jumu['’]?ah mubarak", "ramadan (?:kareem|mubarak)", "shukran"].join('|'));
+const NAME_POOL = ['Clara', 'Bruno', 'Alice', 'David', 'Elena', 'Franck', 'Gloria', 'Hugo'];
+export function protect(text) {
+  const taken = new Set(NAME_POOL.filter((n) => new RegExp(`(?<![${LET}])${n}(?![${LET}])`, 'i').test(text)));
+  const pool = NAME_POOL.filter((n) => !taken.has(n));
+  const map = [], byWord = new Map();
+  const out = text.replace(PROTECT, (m) => {
+    const key = m.toLowerCase().replace(/\s+/g, ' ');
+    if (byWord.has(key)) return byWord.get(key);
+    const name = pool[map.length];
+    if (!name) return m;                                   // more terms than names: leave the rest as they are
+    map.push({ name, original: m }); byWord.set(key, name); return name;
+  });
+  return { text: out, map };
+}
+const countOf = (s, w) => (s.match(new RegExp(`(?<![${LET}])${w}(?![${LET}])`, 'g')) || []).length;
+const hasAll = (out, map) => map.every((x) => countOf(out, x.name) >= 1);
+const restore = (out, map) => map.reduce((t, x) => t.replace(new RegExp(`(?<![${LET}])${x.name}(?![${LET}])`, 'g'), x.original), out);
+
+// French typography: a space before ? ! ; when it is missing ("Pourquoi?" -> "Pourquoi ?")
+function frSpacing(text, hits) {
+  const t = text.replace(new RegExp(`([${LET}\\)”»])([?!;])(?=\\s|$)`, 'gu'), (m, a, p) => { hits.push('spacing'); return `${a} ${p}`; });
+  return t;
+}
+
 export function preEdit(text, lang) {
   const hits = [];
-  let out = applyTable(text, lang === 'fr' ? FR_PRE : EN_PRE, hits);
-  if (hits.length && lang === 'fr') out = out.replace(/(?<![\p{L}])([Dd])e (?=[aeiouyéèêàâîôû])/gu, "$1'");
-  return { text: out, hits, changed: out !== text };
+  try {
+    let out = applyTable(text, lang === 'fr' ? FR_PRE : EN_PRE, hits);
+    if (hits.length && lang === 'fr') out = out.replace(/(?<![\p{L}])([Dd])e (?=[aeiouyéèêàâîôû])/gu, "$1'");
+    return { text: out, hits, changed: out !== text };
+  } catch (e) { return { text, hits: [], changed: false, error: String(e && e.message) }; }
 }
 export function postEdit(text, lang, ctx = {}) {
   const hits = [];
-  let out = text;
-  if (lang === 'fr') {
-    out = tutoie(out, hits);
-    out = applyTable(out, FR_POST, hits);
-    out = genderFix(out, ctx, hits);
-  } else {
-    out = applyTable(out, EN_POST, hits);
-  }
-  return { text: out, hits, changed: out !== text };
+  try {
+    let out = text;
+    if (lang === 'fr') {
+      out = tutoie(out, hits);
+      out = applyTable(out, FR_POST, hits);
+      out = genderFix(out, ctx, hits);
+      out = frSpacing(out, hits);
+    } else {
+      out = applyTable(out, EN_POST, hits);
+    }
+    return { text: out, hits, changed: out !== text };
+  } catch (e) { return { text, hits: [], changed: false, error: String(e && e.message) }; }
 }
 // "tu×4 · idiom: hit the nail on the head"
 export function summarize(hits) {
@@ -250,4 +286,34 @@ export function summarize(hits) {
   for (const h of hits) n.set(h, (n.get(h) || 0) + 1);
   return [...n].map(([h, c]) => (c > 1 ? `${h}×${c}` : h)).join(' · ');
 }
-export const __test = { conv, tutoie, genderFix };
+
+// The whole step for one message. run(text, from, to) -> Promise<{ text, ms }> is Bergamot.
+// Returns { draft, text, msBergamot, msRules, hits, changed }: draft = Bergamot on the sender's own text (what version 1 gives).
+// If anything in the rules fails, the draft is returned and the failure is noted: the rules can never break a translation.
+export async function translateWithRules(run, text, from, to, ctx = {}) {
+  const d0 = await run(text, from, to);
+  let ms = d0.ms || 0;
+  const hits = [];
+  try {
+    const r0 = performance.now();
+    const pre = preEdit(text, from); hits.push(...pre.hits);
+    const prot = protect(pre.text);
+    let d = d0;
+    if (pre.changed || prot.map.length) {
+      d = await run(prot.text, from, to); ms += d.ms || 0;
+      if (!hasAll(d.text, prot.map)) {                       // a protected word did not survive: translate again without protecting it
+        hits.push('protect: fallback');
+        d = pre.changed ? await run(pre.text, from, to) : d0;
+        if (pre.changed) ms += d.ms || 0;
+        prot.map.length = 0;
+      } else if (prot.map.length) hits.push(`protected×${prot.map.length}`);
+    }
+    const post = postEdit(d.text, to, ctx); hits.push(...post.hits);
+    const final = restore(post.text, prot.map);
+    const msRules = Math.max(1, Math.round(performance.now() - r0 - (ms - (d0.ms || 0))));
+    return { draft: d0.text, text: final, msBergamot: ms, msRules, hits, changed: final !== d0.text };
+  } catch (e) {
+    return { draft: d0.text, text: d0.text, msBergamot: ms, msRules: 1, hits: ['rules error: ' + String(e && e.message).slice(0, 80)], changed: false };
+  }
+}
+export const __test = { conv, tutoie, genderFix, protect, restore };

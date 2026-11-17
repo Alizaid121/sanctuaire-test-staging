@@ -417,7 +417,7 @@ const other = () => (session.role === 'admin' ? 'partner' : 'admin');
 
 // ---------- test version (v2.2.0): version 2 = Bergamot + rules step (tu, idioms, slang), version 1 = Bergamot only ----------
 const VER_KEY = 'sanctuaire-t1-version-v1';
-const GUIDE_KEY = '2.2.1';
+const GUIDE_KEY = '2.2.0';
 let VER = (() => { try { return localStorage.getItem(VER_KEY) === '1' ? '1' : '2'; } catch { return '2'; } })();
 const FN = (n) => (VER === '2' ? 't1v2_' : 't1_') + n;
 let testingNow = false;                                  // one test at a time
@@ -856,7 +856,7 @@ function buildTranslatorPanel() {
 
 function engineLabel() {
   const base = `${tr.engineKind === 'engine2' ? 'newer 0.4.16' : 'official 0.4.9'}; beam ${tr.beam}; models v3.0${tr.lex ? ' with word lists' : ' without word lists'}`;
-  return VER === '2' ? `${base}; rules step 1` : base;
+  return VER === '2' ? `${base}; rules step 2` : base;
 }
 function deviceLabel() {
   return `${navigator.userAgent.slice(0, 150)}; mem ${navigator.deviceMemory ?? '?'} GB; ${navigator.hardwareConcurrency ?? '?'} threads`;
@@ -1079,15 +1079,8 @@ function resultBoxes(item, label, which) {
 async function pipeline(text, from, to) {
   if (VER !== '2') { const d = await runTranslate(text, from, to); return { draft: d.text, text: d.text, msDraft: d.ms, msPolish: null, polish: null, rules: null }; }
   const man = session.role === 'admin';                     // the English speaker is the man, the French speaker the woman
-  const ctx = { reader: man ? 'woman' : 'man', writer: man ? 'man' : 'woman' };
-  const pre = rules.preEdit(text, from);
-  const d0 = await runTranslate(text, from, to);
-  let d = d0, extra = 0;
-  if (pre.changed) { d = await runTranslate(pre.text, from, to); extra = d.ms; }
-  const r0 = performance.now();
-  const post = rules.postEdit(d.text, to, ctx);
-  const msRules = Math.max(1, Math.round(performance.now() - r0));
-  return { draft: d0.text, text: post.text, msDraft: d0.ms + extra, msPolish: msRules, polish: post.text !== d0.text ? 'improved' : 'unchanged', rules: rules.summarize([...pre.hits, ...post.hits]) || null };
+  const r = await rules.translateWithRules(runTranslate, text, from, to, { reader: man ? 'woman' : 'man', writer: man ? 'man' : 'woman' });
+  return { draft: r.draft, text: r.text, msDraft: r.msBergamot, msPolish: r.msRules, polish: r.changed ? 'improved' : 'unchanged', rules: rules.summarize(r.hits) || null };
 }
 
 // ---- one of my own sentences ----
