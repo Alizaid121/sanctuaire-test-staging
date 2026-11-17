@@ -1,6 +1,8 @@
 {
   "id": "2.2.0-20261116",
   "version": "2.2.0",
+  "state": "done",
+  "estimatedEndAt": "2026-11-16T00:00:00Z",
   "files": [
     "index.html",
     "reports.js",
@@ -29,7 +31,5 @@
       "L’app te demande avant de quitter une page avec du texte non enregistré",
       "Fenêtres plus claires, et un guide à lire avant d’ouvrir le Test 1"
     ]
-  },
-  "state": "updating",
-  "estimatedEndAt": "2026-11-17T13:10:18.522Z"
+  }
 }
